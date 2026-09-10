@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "authorization": "User states this is their mouse upgrade program and firmware package; interoperability on macOS.",
+  "input": {
+    "filename": "G6HE_v1.0.0+84_202609101503.signed.bin",
+    "sha256": "38f5bbb0ff3eec06600c766094a01c5da987c75d17192b35acc89dd0aed0695a",
+    "size": 350953,
+    "version": "1.0.0+84"
+  },
+  "updater": {
+    "filename": "Keychron Bt Firmware Upgrade_v1.03.exe",
+    "sha256": "c49533765b4f00db78c75585f43482b1bebd95df30549405ac49895565ac4b14",
+    "size": 2228224,
+    "format": "PE32 Intel 80386 Windows GUI",
+    "file_version": "1.0.3.0"
+  },
+  "target": {
+    "model": "54LMG6HE",
+    "mcu_inferred_from_artifact": "nrf54lm20a",
+    "usb_vid": "0x3434",
+    "usb_pid": "0xd086",
+    "upgrade_interface": 3,
+    "usage_page": "0x008c",
+    "usage": "0x0001",
+    "output_report_id": "0xb2",
+    "input_report_id": "0xb1",
+    "report_size": 33
+  },
+  "acceptance": {
+    "previous_version": "1.0.0+82",
+    "verified_version_after_restart": "1.0.0+84",
+    "firmware_crc32": "0x482f47d5",
+    "bytes_written": 350953,
+    "chunks_written": 21935,
+    "usb_reenumerated": true,
+    "post_restart_query_passed": true
+  },
+  "status": {
+    "verified": [
+      "Input hashes and sizes",
+      "MCUboot structure and embedded SHA-512",
+      "G6 HE normal-mode identity and 33-byte HID protocol",
+      "Command framing, response types, chunking, retry, and CRC behavior",
+      "End-to-end upgrade from 1.0.0+82 to 1.0.0+84",
+      "Post-restart version readback"
+    ],
+    "partial": [
+      "MCU part is inferred from the firmware string",
+      "Ed25519 signature is authenticated by the device, not independently by the host"
+    ],
+    "blocked": [],
+    "not_tested": [
+      "Power-loss recovery",
+      "Separate bootloader identity for other device revisions"
+    ]
+  }
+}
