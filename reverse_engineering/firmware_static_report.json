@@ -1,0 +1,1270 @@
+{
+  "schema_version": 1,
+  "input": {
+    "path": "firmware/G6HE_v1.0.0+84_202609101503.signed.bin",
+    "size": 350953,
+    "sha256": "38f5bbb0ff3eec06600c766094a01c5da987c75d17192b35acc89dd0aed0695a"
+  },
+  "mcuboot": {
+    "file": "firmware/G6HE_v1.0.0+84_202609101503.signed.bin",
+    "size": 350953,
+    "sha256": "38f5bbb0ff3eec06600c766094a01c5da987c75d17192b35acc89dd0aed0695a",
+    "container": "MCUboot signed image",
+    "header": {
+      "magic": "0x96f3b83d",
+      "load_address": "0x20000800",
+      "header_size": 2048,
+      "protected_tlv_size": 0,
+      "image_size": 348692,
+      "flags": "0x00000020",
+      "version": "1.0.0+84",
+      "build_number": 84
+    },
+    "payload_vector": {
+      "initial_sp": "0x20063950",
+      "reset_vector": "0x20021fc9"
+    },
+    "tlv_offset": "0x55a14",
+    "tlv_total_size": 213,
+    "embedded_sha512_verified": true,
+    "tlvs": [
+      {
+        "offset": "0x55a18",
+        "type": "0x12",
+        "name": "sha512",
+        "pad": 0,
+        "length": 64,
+        "value_sha256": "c7215131f6f96c8ac03e23264a6b47926eb988a6e6452921fd2d49fbe9396e90",
+        "matches_header_and_payload": true
+      },
+      {
+        "offset": "0x55a5c",
+        "type": "0x25",
+        "name": "signature_pure_flag",
+        "pad": 0,
+        "length": 1,
+        "value_sha256": "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a",
+        "value": 1
+      },
+      {
+        "offset": "0x55a61",
+        "type": "0x01",
+        "name": "key_hash",
+        "pad": 0,
+        "length": 64,
+        "value_sha256": "7e820515875b0143df307d573d791dd35b605885e46a22b2394fbceb026523c7"
+      },
+      {
+        "offset": "0x55aa5",
+        "type": "0x24",
+        "name": "ed25519_signature",
+        "pad": 0,
+        "length": 64,
+        "value_sha256": "1cd80d2adb4dfafd769ad60c4d25452cfd8505e544d0b85a9a74365258a7dc74"
+      }
+    ],
+    "embedded_identifiers": [
+      "1.0.0+84",
+      "15:10:32",
+      "54LMG6HE",
+      "54LMv1.0",
+      "G6 HE 8K",
+      "KCFWID",
+      "Keychron G6 HE",
+      "Keychron G6 HE 8K",
+      "Sep 10 2026",
+      "nrf54lm20a"
+    ],
+    "signature_note": "The image contains an Ed25519 signature and key hash, but the public key is not present in this package; only the embedded SHA-512 can be verified locally. The target bootloader must authenticate the signature."
+  },
+  "memory_map": {
+    "ram_start": "0x20000000",
+    "ram_end_exclusive": "0x20080000",
+    "load_address": "0x20000800",
+    "vector_address": "0x20001000",
+    "image_end": "0x20056214",
+    "mapped_file_end": "0x200562e9",
+    "initial_sp": "0x20063950",
+    "bytes_image_end_to_initial_sp": 55100,
+    "bytes_initial_sp_to_ram_end": 116400,
+    "bytes_mapped_file_end_to_ram_end": 171287
+  },
+  "vector_table": {
+    "offset": "0x800",
+    "initial_sp": "0x20063950",
+    "initial_sp_in_ram": true,
+    "reset_vector": "0x20021fc9",
+    "entry_count": 64,
+    "unique_handler_addresses": [
+      "0x20021fb4",
+      "0x20021fc8",
+      "0x200220c4",
+      "0x2002212c",
+      "0x200222f4",
+      "0x20042cae"
+    ],
+    "invalid_handler_addresses": [],
+    "non_thumb_handler_addresses": [],
+    "default_handler_repetition": [
+      [
+        "0x200222f4",
+        48
+      ],
+      [
+        "0x20021fb4",
+        7
+      ],
+      [
+        "0x20021fc8",
+        1
+      ],
+      [
+        "0x20042cae",
+        1
+      ],
+      [
+        "0x2002212c",
+        1
+      ]
+    ]
+  },
+  "version_and_build_strings": {
+    "header_version": "1.0.0+84",
+    "payload_versions": [
+      "1.0.0+84"
+    ],
+    "timestamps": [
+      "15:10:22",
+      "15:10:32",
+      "Sep 10 2026"
+    ]
+  },
+  "selected_strings": [
+    {
+      "file_offset": "0x4fde8",
+      "value": "ppt_ptx"
+    },
+    {
+      "file_offset": "0x4fe00",
+      "value": "TX power to enumerator conversion failed, defaulting to 0 dBm"
+    },
+    {
+      "file_offset": "0x50097",
+      "value": "WEST_TOPDIR/zephyr/include/zephyr/kernel.h"
+    },
+    {
+      "file_offset": "0x50f97",
+      "value": "mouse_ble/rpa"
+    },
+    {
+      "file_offset": "0x50fa5",
+      "value": "CMAKE_SOURCE_DIR/src/user_ble.c"
+    },
+    {
+      "file_offset": "0x51011",
+      "value": "Keychron G6 HE 8K"
+    },
+    {
+      "file_offset": "0x510c3",
+      "value": "mouse_ble"
+    },
+    {
+      "file_offset": "0x510d2",
+      "value": "G6 HE 8K"
+    },
+    {
+      "file_offset": "0x510db",
+      "value": "WEST_TOPDIR/zephyr/include/zephyr/drivers/gpio.h"
+    },
+    {
+      "file_offset": "0x5123c",
+      "value": "WEST_TOPDIR/modules/hal/nordic/nrfx/hal/nrf_gpio.h"
+    },
+    {
+      "file_offset": "0x5126f",
+      "value": "ppt_ptx/bond/(null)"
+    },
+    {
+      "file_offset": "0x512ae",
+      "value": "Keychron G6 HE 8K"
+    },
+    {
+      "file_offset": "0x512c0",
+      "value": "Keychron G6 HE 8K"
+    },
+    {
+      "file_offset": "0x512d2",
+      "value": "Keychron"
+    },
+    {
+      "file_offset": "0x512e6",
+      "value": "bt/keys/"
+    },
+    {
+      "file_offset": "0x51304",
+      "value": "ppt_ptx/bond"
+    },
+    {
+      "file_offset": "0x51315",
+      "value": "mouse_ble/rpa/"
+    },
+    {
+      "file_offset": "0x51324",
+      "value": "ppt_ptx/bond/"
+    },
+    {
+      "file_offset": "0x51332",
+      "value": "hall/mem0"
+    },
+    {
+      "file_offset": "0x5133c",
+      "value": "hall/mem1"
+    },
+    {
+      "file_offset": "0x5134b",
+      "value": "hall/ax0"
+    },
+    {
+      "file_offset": "0x51354",
+      "value": "hall/ax1"
+    },
+    {
+      "file_offset": "0x51398",
+      "value": "15:10:22"
+    },
+    {
+      "file_offset": "0x513a1",
+      "value": "Sep 10 2026"
+    },
+    {
+      "file_offset": "0x513cb",
+      "value": "WEST_TOPDIR/zephyr/lib/heap/heap.c"
+    },
+    {
+      "file_offset": "0x513ee",
+      "value": "WEST_TOPDIR/zephyr/lib/utils/onoff.c"
+    },
+    {
+      "file_offset": "0x51413",
+      "value": "WEST_TOPDIR/zephyr/lib/utils/notify.c"
+    },
+    {
+      "file_offset": "0x51439",
+      "value": "WEST_TOPDIR/zephyr/subsys/pm/device_runtime.c"
+    },
+    {
+      "file_offset": "0x51467",
+      "value": "nrf54lm20a"
+    },
+    {
+      "file_offset": "0x51472",
+      "value": "Keychron G6 HE"
+    },
+    {
+      "file_offset": "0x51481",
+      "value": "WEST_TOPDIR/zephyr/subsys/settings/src/settings.c"
+    },
+    {
+      "file_offset": "0x514b3",
+      "value": "WEST_TOPDIR/zephyr/subsys/settings/src/settings_zms.c"
+    },
+    {
+      "file_offset": "0x514e9",
+      "value": "WEST_TOPDIR/nrf/subsys/bluetooth/gatt_pool.c"
+    },
+    {
+      "file_offset": "0x51516",
+      "value": "WEST_TOPDIR/nrf/subsys/bluetooth/conn_ctx.c"
+    },
+    {
+      "file_offset": "0x51542",
+      "value": "WEST_TOPDIR/nrf/subsys/bluetooth/services/hids.c"
+    },
+    {
+      "file_offset": "0x5157b",
+      "value": "54LMG6HE"
+    },
+    {
+      "file_offset": "0x5158e",
+      "value": "54LMG6HE"
+    },
+    {
+      "file_offset": "0x51597",
+      "value": "54LMv1.0"
+    },
+    {
+      "file_offset": "0x515a0",
+      "value": "Sep 10 2026"
+    },
+    {
+      "file_offset": "0x515ac",
+      "value": "15:10:32"
+    },
+    {
+      "file_offset": "0x515da",
+      "value": "WEST_TOPDIR/zephyr/arch/common/sw_isr_common.c"
+    },
+    {
+      "file_offset": "0x51609",
+      "value": "WEST_TOPDIR/zephyr/arch/common/dynamic_isr.c"
+    },
+    {
+      "file_offset": "0x51636",
+      "value": "WEST_TOPDIR/zephyr/arch/arm/core/cortex_m/fault.c"
+    },
+    {
+      "file_offset": "0x51668",
+      "value": "WEST_TOPDIR/zephyr/arch/arm/core/cortex_m/irq_manage.c"
+    },
+    {
+      "file_offset": "0x5169f",
+      "value": "WEST_TOPDIR/zephyr/arch/arm/core/mpu/arm_mpu.c"
+    },
+    {
+      "file_offset": "0x516d5",
+      "value": "WEST_TOPDIR/zephyr/lib/libc/picolibc/assert.c"
+    },
+    {
+      "file_offset": "0x51708",
+      "value": "WEST_TOPDIR/zephyr/lib/net_buf/buf.c"
+    },
+    {
+      "file_offset": "0x5172d",
+      "value": "WEST_TOPDIR/zephyr/lib/net_buf/buf_simple.c"
+    },
+    {
+      "file_offset": "0x51759",
+      "value": "WEST_TOPDIR/zephyr/subsys/usb/device_next/usbd_device.c"
+    },
+    {
+      "file_offset": "0x51791",
+      "value": "WEST_TOPDIR/zephyr/include/zephyr/drivers/usb/udc.h"
+    },
+    {
+      "file_offset": "0x517c5",
+      "value": "WEST_TOPDIR/zephyr/subsys/usb/device_next/usbd_ch9.c"
+    },
+    {
+      "file_offset": "0x5180b",
+      "value": "WEST_TOPDIR/zephyr/subsys/usb/device_next/usbd_core.c"
+    },
+    {
+      "file_offset": "0x51841",
+      "value": "WEST_TOPDIR/zephyr/subsys/usb/device_next/usbd_class.c"
+    },
+    {
+      "file_offset": "0x51878",
+      "value": "WEST_TOPDIR/zephyr/subsys/usb/device_next/usbd_endpoint.c"
+    },
+    {
+      "file_offset": "0x518b2",
+      "value": "WEST_TOPDIR/zephyr/subsys/usb/device_next/usbd_msg.c"
+    },
+    {
+      "file_offset": "0x518e7",
+      "value": "WEST_TOPDIR/zephyr/subsys/usb/device_next/class/usbd_hid.c"
+    },
+    {
+      "file_offset": "0x5199f",
+      "value": "WEST_TOPDIR/zephyr/subsys/bluetooth/host/buf.c"
+    },
+    {
+      "file_offset": "0x519ce",
+      "value": "WEST_TOPDIR/zephyr/include/zephyr/bluetooth/buf.h"
+    },
+    {
+      "file_offset": "0x51a00",
+      "value": "WEST_TOPDIR/zephyr/subsys/bluetooth/host/hci_core.c"
+    },
+    {
+      "file_offset": "0x51a71",
+      "value": "WEST_TOPDIR/zephyr/subsys/bluetooth/host/id.c"
+    },
+    {
+      "file_offset": "0x51a9f",
+      "value": "WEST_TOPDIR/zephyr/include/zephyr/sys/byteorder.h"
+    },
+    {
+      "file_offset": "0x51b11",
+      "value": "WEST_TOPDIR/zephyr/subsys/bluetooth/host/conn.c"
+    },
+    {
+      "file_offset": "0x51b4a",
+      "value": "WEST_TOPDIR/zephyr/subsys/bluetooth/host/l2cap.c"
+    },
+    {
+      "file_offset": "0x51b7b",
+      "value": "WEST_TOPDIR/zephyr/subsys/bluetooth/host/att.c"
+    },
+    {
+      "file_offset": "0x51baa",
+      "value": "WEST_TOPDIR/zephyr/subsys/bluetooth/host/gatt.c"
+    },
+    {
+      "file_offset": "0x51bee",
+      "value": "WEST_TOPDIR/zephyr/subsys/bluetooth/host/smp.c"
+    },
+    {
+      "file_offset": "0x51c56",
+      "value": "WEST_TOPDIR/zephyr/subsys/bluetooth/host/keys.c"
+    },
+    {
+      "file_offset": "0x51c86",
+      "value": "bt/keys"
+    },
+    {
+      "file_offset": "0x51ca6",
+      "value": "8?61$#*-WEST_TOPDIR/zephyr/subsys/input/input.c"
+    },
+    {
+      "file_offset": "0x51cf4",
+      "value": "WEST_TOPDIR/zephyr/drivers/usb/udc/udc_dwc2.c"
+    },
+    {
+      "file_offset": "0x51d42",
+      "value": "WEST_TOPDIR/zephyr/drivers/adc/adc_common.c"
+    },
+    {
+      "file_offset": "0x51d98",
+      "value": "WEST_TOPDIR/zephyr/drivers/adc/adc_nrfx_saadc.c"
+    },
+    {
+      "file_offset": "0x51dd2",
+      "value": "WEST_TOPDIR/zephyr/drivers/clock_control/clock_control_nrf.c"
+    },
+    {
+      "file_offset": "0x51e4d",
+      "value": "WEST_TOPDIR/zephyr/include/zephyr/drivers/gpio/gpio_utils.h"
+    },
+    {
+      "file_offset": "0x51e89",
+      "value": "WEST_TOPDIR/zephyr/drivers/gpio/gpio_nrfx.c"
+    },
+    {
+      "file_offset": "0x51f6f",
+      "value": "WEST_TOPDIR/zephyr/drivers/sensor/nordic/npm13xx_charger/npm13xx_charger.c"
+    },
+    {
+      "file_offset": "0x51fd6",
+      "value": "WEST_TOPDIR/zephyr/drivers/timer/nrf_grtc_timer.c"
+    },
+    {
+      "file_offset": "0x5200b",
+      "value": "watchdog"
+    },
+    {
+      "file_offset": "0x52014",
+      "value": "watchdog@109000"
+    },
+    {
+      "file_offset": "0x52024",
+      "value": "WEST_TOPDIR/zephyr/include/zephyr/drivers/entropy.h"
+    },
+    {
+      "file_offset": "0x52058",
+      "value": "WEST_TOPDIR/nrf/subsys/bluetooth/controller/hci_driver.c"
+    },
+    {
+      "file_offset": "0x52091",
+      "value": "WEST_TOPDIR/nrf/include/mpsl/mpsl_work.h"
+    },
+    {
+      "file_offset": "0x520c5",
+      "value": "WEST_TOPDIR/nrf/subsys/mpsl/init/mpsl_init.c"
+    },
+    {
+      "file_offset": "0x520fc",
+      "value": "WEST_TOPDIR/nrf/drivers/mpsl/clock_control/nrfx_clock_mpsl.c"
+    },
+    {
+      "file_offset": "0x52139",
+      "value": "WEST_TOPDIR/nrf/drivers/mpsl/flash_sync/flash_sync_mpsl.c"
+    },
+    {
+      "file_offset": "0x5217e",
+      "value": "WEST_TOPDIR/modules/hal/nordic/nrfx/helpers/nrfx_ram_ctrl.c"
+    },
+    {
+      "file_offset": "0x521ba",
+      "value": "WEST_TOPDIR/modules/hal/nordic/nrfx/helpers/nrfx_ram_ctrl.h"
+    },
+    {
+      "file_offset": "0x521f6",
+      "value": "WEST_TOPDIR/modules/hal/nordic/nrfx/helpers/nrfx_gppi_dppi.c"
+    },
+    {
+      "file_offset": "0x52233",
+      "value": "WEST_TOPDIR/modules/hal/nordic/nrfx/bsp/stable/soc/interconnect/nrfx_gppi_d2ppi.c"
+    },
+    {
+      "file_offset": "0x52285",
+      "value": "WEST_TOPDIR/modules/hal/nordic/nrfx/drivers/src/nrfx_gpiote.c"
+    },
+    {
+      "file_offset": "0x522c3",
+      "value": "WEST_TOPDIR/modules/hal/nordic/nrfx/hal/nrf_gpiote.h"
+    },
+    {
+      "file_offset": "0x5230c",
+      "value": "WEST_TOPDIR/modules/hal/nordic/nrfx/hal/nrf_grtc.h"
+    },
+    {
+      "file_offset": "0x5233f",
+      "value": "WEST_TOPDIR/modules/hal/nordic/nrfx/drivers/src/nrfx_grtc.c"
+    },
+    {
+      "file_offset": "0x5237b",
+      "value": "WEST_TOPDIR/modules/hal/nordic/nrfx/drivers/src/nrfx_power.c"
+    },
+    {
+      "file_offset": "0x523b8",
+      "value": "WEST_TOPDIR/modules/hal/nordic/nrfx/drivers/src/nrfx_qdec.c"
+    },
+    {
+      "file_offset": "0x523f4",
+      "value": "WEST_TOPDIR/modules/hal/nordic/nrfx/hal/nrf_rramc.h"
+    },
+    {
+      "file_offset": "0x52428",
+      "value": "WEST_TOPDIR/modules/hal/nordic/nrfx/drivers/src/nrfx_saadc.c"
+    },
+    {
+      "file_offset": "0x52465",
+      "value": "WEST_TOPDIR/modules/hal/nordic/nrfx/hal/nrf_saadc.h"
+    },
+    {
+      "file_offset": "0x52499",
+      "value": "WEST_TOPDIR/modules/hal/nordic/nrfx/hal/nrf_spim.h"
+    },
+    {
+      "file_offset": "0x524cc",
+      "value": "WEST_TOPDIR/modules/hal/nordic/nrfx/drivers/src/nrfx_spim.c"
+    },
+    {
+      "file_offset": "0x52508",
+      "value": "WEST_TOPDIR/modules/hal/nordic/nrfx/drivers/src/nrfx_timer.c"
+    },
+    {
+      "file_offset": "0x52545",
+      "value": "WEST_TOPDIR/modules/hal/nordic/nrfx/drivers/src/nrfx_twim.c"
+    },
+    {
+      "file_offset": "0x52581",
+      "value": "WEST_TOPDIR/modules/hal/nordic/nrfx/drivers/src/nrfx_wdt.c"
+    },
+    {
+      "file_offset": "0x525bc",
+      "value": "WEST_TOPDIR/zephyr/kernel/device.c"
+    },
+    {
+      "file_offset": "0x525df",
+      "value": "WEST_TOPDIR/zephyr/kernel/fatal.c"
+    },
+    {
+      "file_offset": "0x52601",
+      "value": "WEST_TOPDIR/zephyr/kernel/init.c"
+    },
+    {
+      "file_offset": "0x52627",
+      "value": "WEST_TOPDIR/zephyr/kernel/kheap.c"
+    },
+    {
+      "file_offset": "0x52649",
+      "value": "WEST_TOPDIR/zephyr/kernel/mem_slab.c"
+    },
+    {
+      "file_offset": "0x5266e",
+      "value": "WEST_TOPDIR/zephyr/kernel/include/ksched.h"
+    },
+    {
+      "file_offset": "0x52699",
+      "value": "WEST_TOPDIR/zephyr/kernel/idle.c"
+    },
+    {
+      "file_offset": "0x526ba",
+      "value": "WEST_TOPDIR/zephyr/kernel/msg_q.c"
+    },
+    {
+      "file_offset": "0x526dc",
+      "value": "WEST_TOPDIR/zephyr/kernel/mutex.c"
+    },
+    {
+      "file_offset": "0x526fe",
+      "value": "WEST_TOPDIR/zephyr/kernel/sem.c"
+    },
+    {
+      "file_offset": "0x52727",
+      "value": "WEST_TOPDIR/zephyr/kernel/work.c"
+    },
+    {
+      "file_offset": "0x52748",
+      "value": "WEST_TOPDIR/zephyr/kernel/thread.c"
+    },
+    {
+      "file_offset": "0x5276b",
+      "value": "WEST_TOPDIR/zephyr/kernel/sched.c"
+    },
+    {
+      "file_offset": "0x5278d",
+      "value": "WEST_TOPDIR/zephyr/kernel/include/kthread.h"
+    },
+    {
+      "file_offset": "0x527b9",
+      "value": "WEST_TOPDIR/zephyr/kernel/timeout.c"
+    },
+    {
+      "file_offset": "0x527dd",
+      "value": "WEST_TOPDIR/zephyr/kernel/poll.c"
+    },
+    {
+      "file_offset": "0x527fe",
+      "value": "WEST_TOPDIR/zephyr/kernel/events.c"
+    },
+    {
+      "file_offset": "0x52821",
+      "value": "WEST_TOPDIR/zephyr/kernel/mempool.c"
+    },
+    {
+      "file_offset": "0x52856",
+      "value": "@WEST_TOPDIR/nrf/subsys/nrf_security/src/drivers/cracen/common/src/cracen/lib_kmu.c"
+    },
+    {
+      "file_offset": "0x528aa",
+      "value": "WEST_TOPDIR/nrf/subsys/nrf_security/src/drivers/cracen/cracenpsa/src/cracen_psa_key_management.c"
+    },
+    {
+      "file_offset": "0x5290e",
+      "value": "WEST_TOPDIR/nrf/subsys/nrf_security/src/drivers/cracen/cracen_sw/src/cracen_sw_mac.c"
+    },
+    {
+      "file_offset": "0x52974",
+      "value": "@WEST_TOPDIR/nrf/subsys/nrf_security/src/drivers/cracen/sxsymcrypt/src/platform/baremetal/interrupts.c"
+    },
+    {
+      "file_offset": "0x52a99",
+      "value": "`KWEST_TOPDIR/nrf/subsys/nrf_security/src/utils/nrf_security_mutexes.c"
+    }
+  ],
+  "possible_plaintext_secrets": [],
+  "entropy_windows": [
+    {
+      "offset": "0x0",
+      "size": 4096,
+      "entropy": 3.3,
+      "zero_ratio": 0.51,
+      "ff_ratio": 0.0049
+    },
+    {
+      "offset": "0x1000",
+      "size": 4096,
+      "entropy": 6.633,
+      "zero_ratio": 0.0342,
+      "ff_ratio": 0.0103
+    },
+    {
+      "offset": "0x2000",
+      "size": 4096,
+      "entropy": 6.5362,
+      "zero_ratio": 0.0552,
+      "ff_ratio": 0.0068
+    },
+    {
+      "offset": "0x3000",
+      "size": 4096,
+      "entropy": 6.9872,
+      "zero_ratio": 0.0522,
+      "ff_ratio": 0.0188
+    },
+    {
+      "offset": "0x4000",
+      "size": 4096,
+      "entropy": 7.0027,
+      "zero_ratio": 0.0408,
+      "ff_ratio": 0.0129
+    },
+    {
+      "offset": "0x5000",
+      "size": 4096,
+      "entropy": 6.9459,
+      "zero_ratio": 0.0439,
+      "ff_ratio": 0.009
+    },
+    {
+      "offset": "0x6000",
+      "size": 4096,
+      "entropy": 7.0024,
+      "zero_ratio": 0.0425,
+      "ff_ratio": 0.0088
+    },
+    {
+      "offset": "0x7000",
+      "size": 4096,
+      "entropy": 7.0172,
+      "zero_ratio": 0.0334,
+      "ff_ratio": 0.0107
+    },
+    {
+      "offset": "0x8000",
+      "size": 4096,
+      "entropy": 6.973,
+      "zero_ratio": 0.0449,
+      "ff_ratio": 0.0125
+    },
+    {
+      "offset": "0x9000",
+      "size": 4096,
+      "entropy": 6.9506,
+      "zero_ratio": 0.0559,
+      "ff_ratio": 0.009
+    },
+    {
+      "offset": "0xa000",
+      "size": 4096,
+      "entropy": 7.0181,
+      "zero_ratio": 0.0522,
+      "ff_ratio": 0.0171
+    },
+    {
+      "offset": "0xb000",
+      "size": 4096,
+      "entropy": 6.8919,
+      "zero_ratio": 0.062,
+      "ff_ratio": 0.0217
+    },
+    {
+      "offset": "0xc000",
+      "size": 4096,
+      "entropy": 6.6358,
+      "zero_ratio": 0.0671,
+      "ff_ratio": 0.0059
+    },
+    {
+      "offset": "0xd000",
+      "size": 4096,
+      "entropy": 6.9086,
+      "zero_ratio": 0.0571,
+      "ff_ratio": 0.0132
+    },
+    {
+      "offset": "0xe000",
+      "size": 4096,
+      "entropy": 6.8088,
+      "zero_ratio": 0.0403,
+      "ff_ratio": 0.0176
+    },
+    {
+      "offset": "0xf000",
+      "size": 4096,
+      "entropy": 6.9589,
+      "zero_ratio": 0.0317,
+      "ff_ratio": 0.0151
+    },
+    {
+      "offset": "0x10000",
+      "size": 4096,
+      "entropy": 6.8964,
+      "zero_ratio": 0.0374,
+      "ff_ratio": 0.0181
+    },
+    {
+      "offset": "0x11000",
+      "size": 4096,
+      "entropy": 6.8764,
+      "zero_ratio": 0.0505,
+      "ff_ratio": 0.0134
+    },
+    {
+      "offset": "0x12000",
+      "size": 4096,
+      "entropy": 6.8808,
+      "zero_ratio": 0.0305,
+      "ff_ratio": 0.0178
+    },
+    {
+      "offset": "0x13000",
+      "size": 4096,
+      "entropy": 6.8035,
+      "zero_ratio": 0.0457,
+      "ff_ratio": 0.0215
+    },
+    {
+      "offset": "0x14000",
+      "size": 4096,
+      "entropy": 6.6771,
+      "zero_ratio": 0.042,
+      "ff_ratio": 0.0151
+    },
+    {
+      "offset": "0x15000",
+      "size": 4096,
+      "entropy": 6.9276,
+      "zero_ratio": 0.0439,
+      "ff_ratio": 0.0149
+    },
+    {
+      "offset": "0x16000",
+      "size": 4096,
+      "entropy": 6.8773,
+      "zero_ratio": 0.0435,
+      "ff_ratio": 0.0217
+    },
+    {
+      "offset": "0x17000",
+      "size": 4096,
+      "entropy": 6.7628,
+      "zero_ratio": 0.0486,
+      "ff_ratio": 0.0151
+    },
+    {
+      "offset": "0x18000",
+      "size": 4096,
+      "entropy": 6.8027,
+      "zero_ratio": 0.0388,
+      "ff_ratio": 0.0212
+    },
+    {
+      "offset": "0x19000",
+      "size": 4096,
+      "entropy": 7.0022,
+      "zero_ratio": 0.0408,
+      "ff_ratio": 0.0156
+    },
+    {
+      "offset": "0x1a000",
+      "size": 4096,
+      "entropy": 7.0975,
+      "zero_ratio": 0.0518,
+      "ff_ratio": 0.0105
+    },
+    {
+      "offset": "0x1b000",
+      "size": 4096,
+      "entropy": 6.9997,
+      "zero_ratio": 0.0437,
+      "ff_ratio": 0.0151
+    },
+    {
+      "offset": "0x1c000",
+      "size": 4096,
+      "entropy": 6.9597,
+      "zero_ratio": 0.0315,
+      "ff_ratio": 0.01
+    },
+    {
+      "offset": "0x1d000",
+      "size": 4096,
+      "entropy": 6.9292,
+      "zero_ratio": 0.0437,
+      "ff_ratio": 0.0139
+    },
+    {
+      "offset": "0x1e000",
+      "size": 4096,
+      "entropy": 6.9535,
+      "zero_ratio": 0.04,
+      "ff_ratio": 0.02
+    },
+    {
+      "offset": "0x1f000",
+      "size": 4096,
+      "entropy": 6.9122,
+      "zero_ratio": 0.0498,
+      "ff_ratio": 0.0171
+    },
+    {
+      "offset": "0x20000",
+      "size": 4096,
+      "entropy": 6.9883,
+      "zero_ratio": 0.0349,
+      "ff_ratio": 0.0164
+    },
+    {
+      "offset": "0x21000",
+      "size": 4096,
+      "entropy": 6.9473,
+      "zero_ratio": 0.0554,
+      "ff_ratio": 0.0144
+    },
+    {
+      "offset": "0x22000",
+      "size": 4096,
+      "entropy": 6.9609,
+      "zero_ratio": 0.0391,
+      "ff_ratio": 0.0134
+    },
+    {
+      "offset": "0x23000",
+      "size": 4096,
+      "entropy": 7.008,
+      "zero_ratio": 0.042,
+      "ff_ratio": 0.0139
+    },
+    {
+      "offset": "0x24000",
+      "size": 4096,
+      "entropy": 6.8871,
+      "zero_ratio": 0.0369,
+      "ff_ratio": 0.0166
+    },
+    {
+      "offset": "0x25000",
+      "size": 4096,
+      "entropy": 6.9065,
+      "zero_ratio": 0.0505,
+      "ff_ratio": 0.0164
+    },
+    {
+      "offset": "0x26000",
+      "size": 4096,
+      "entropy": 6.9892,
+      "zero_ratio": 0.0361,
+      "ff_ratio": 0.0139
+    },
+    {
+      "offset": "0x27000",
+      "size": 4096,
+      "entropy": 6.9572,
+      "zero_ratio": 0.0432,
+      "ff_ratio": 0.0134
+    },
+    {
+      "offset": "0x28000",
+      "size": 4096,
+      "entropy": 6.9155,
+      "zero_ratio": 0.0386,
+      "ff_ratio": 0.0139
+    },
+    {
+      "offset": "0x29000",
+      "size": 4096,
+      "entropy": 6.8394,
+      "zero_ratio": 0.0391,
+      "ff_ratio": 0.022
+    },
+    {
+      "offset": "0x2a000",
+      "size": 4096,
+      "entropy": 6.9396,
+      "zero_ratio": 0.032,
+      "ff_ratio": 0.012
+    },
+    {
+      "offset": "0x2b000",
+      "size": 4096,
+      "entropy": 6.9704,
+      "zero_ratio": 0.0393,
+      "ff_ratio": 0.0088
+    },
+    {
+      "offset": "0x2c000",
+      "size": 4096,
+      "entropy": 6.8834,
+      "zero_ratio": 0.0405,
+      "ff_ratio": 0.0071
+    },
+    {
+      "offset": "0x2d000",
+      "size": 4096,
+      "entropy": 7.0143,
+      "zero_ratio": 0.0442,
+      "ff_ratio": 0.0076
+    },
+    {
+      "offset": "0x2e000",
+      "size": 4096,
+      "entropy": 7.0265,
+      "zero_ratio": 0.0498,
+      "ff_ratio": 0.0088
+    },
+    {
+      "offset": "0x2f000",
+      "size": 4096,
+      "entropy": 6.9676,
+      "zero_ratio": 0.0498,
+      "ff_ratio": 0.0122
+    },
+    {
+      "offset": "0x30000",
+      "size": 4096,
+      "entropy": 6.9387,
+      "zero_ratio": 0.0515,
+      "ff_ratio": 0.0159
+    },
+    {
+      "offset": "0x31000",
+      "size": 4096,
+      "entropy": 6.9425,
+      "zero_ratio": 0.0391,
+      "ff_ratio": 0.0144
+    },
+    {
+      "offset": "0x32000",
+      "size": 4096,
+      "entropy": 6.9501,
+      "zero_ratio": 0.0447,
+      "ff_ratio": 0.0186
+    },
+    {
+      "offset": "0x33000",
+      "size": 4096,
+      "entropy": 6.9304,
+      "zero_ratio": 0.0413,
+      "ff_ratio": 0.0137
+    },
+    {
+      "offset": "0x34000",
+      "size": 4096,
+      "entropy": 6.9016,
+      "zero_ratio": 0.0383,
+      "ff_ratio": 0.0105
+    },
+    {
+      "offset": "0x35000",
+      "size": 4096,
+      "entropy": 6.9374,
+      "zero_ratio": 0.0366,
+      "ff_ratio": 0.0203
+    },
+    {
+      "offset": "0x36000",
+      "size": 4096,
+      "entropy": 7.0597,
+      "zero_ratio": 0.0469,
+      "ff_ratio": 0.0146
+    },
+    {
+      "offset": "0x37000",
+      "size": 4096,
+      "entropy": 6.9077,
+      "zero_ratio": 0.0591,
+      "ff_ratio": 0.0156
+    },
+    {
+      "offset": "0x38000",
+      "size": 4096,
+      "entropy": 6.9682,
+      "zero_ratio": 0.0549,
+      "ff_ratio": 0.0112
+    },
+    {
+      "offset": "0x39000",
+      "size": 4096,
+      "entropy": 6.9697,
+      "zero_ratio": 0.05,
+      "ff_ratio": 0.0173
+    },
+    {
+      "offset": "0x3a000",
+      "size": 4096,
+      "entropy": 6.9675,
+      "zero_ratio": 0.0542,
+      "ff_ratio": 0.0115
+    },
+    {
+      "offset": "0x3b000",
+      "size": 4096,
+      "entropy": 7.047,
+      "zero_ratio": 0.0491,
+      "ff_ratio": 0.0059
+    },
+    {
+      "offset": "0x3c000",
+      "size": 4096,
+      "entropy": 6.942,
+      "zero_ratio": 0.0608,
+      "ff_ratio": 0.0125
+    },
+    {
+      "offset": "0x3d000",
+      "size": 4096,
+      "entropy": 6.9734,
+      "zero_ratio": 0.0566,
+      "ff_ratio": 0.0066
+    },
+    {
+      "offset": "0x3e000",
+      "size": 4096,
+      "entropy": 6.9845,
+      "zero_ratio": 0.0583,
+      "ff_ratio": 0.0156
+    },
+    {
+      "offset": "0x3f000",
+      "size": 4096,
+      "entropy": 6.8289,
+      "zero_ratio": 0.0447,
+      "ff_ratio": 0.0308
+    },
+    {
+      "offset": "0x40000",
+      "size": 4096,
+      "entropy": 6.8534,
+      "zero_ratio": 0.041,
+      "ff_ratio": 0.0437
+    },
+    {
+      "offset": "0x41000",
+      "size": 4096,
+      "entropy": 6.8429,
+      "zero_ratio": 0.0483,
+      "ff_ratio": 0.0342
+    },
+    {
+      "offset": "0x42000",
+      "size": 4096,
+      "entropy": 6.8543,
+      "zero_ratio": 0.031,
+      "ff_ratio": 0.0239
+    },
+    {
+      "offset": "0x43000",
+      "size": 4096,
+      "entropy": 6.7972,
+      "zero_ratio": 0.0386,
+      "ff_ratio": 0.0222
+    },
+    {
+      "offset": "0x44000",
+      "size": 4096,
+      "entropy": 6.8926,
+      "zero_ratio": 0.043,
+      "ff_ratio": 0.0198
+    },
+    {
+      "offset": "0x45000",
+      "size": 4096,
+      "entropy": 6.804,
+      "zero_ratio": 0.0349,
+      "ff_ratio": 0.0264
+    },
+    {
+      "offset": "0x46000",
+      "size": 4096,
+      "entropy": 6.7647,
+      "zero_ratio": 0.032,
+      "ff_ratio": 0.0271
+    },
+    {
+      "offset": "0x47000",
+      "size": 4096,
+      "entropy": 6.9062,
+      "zero_ratio": 0.0493,
+      "ff_ratio": 0.0225
+    },
+    {
+      "offset": "0x48000",
+      "size": 4096,
+      "entropy": 6.8175,
+      "zero_ratio": 0.0486,
+      "ff_ratio": 0.0288
+    },
+    {
+      "offset": "0x49000",
+      "size": 4096,
+      "entropy": 6.7545,
+      "zero_ratio": 0.0437,
+      "ff_ratio": 0.0295
+    },
+    {
+      "offset": "0x4a000",
+      "size": 4096,
+      "entropy": 6.8277,
+      "zero_ratio": 0.0535,
+      "ff_ratio": 0.0193
+    },
+    {
+      "offset": "0x4b000",
+      "size": 4096,
+      "entropy": 6.8007,
+      "zero_ratio": 0.0466,
+      "ff_ratio": 0.0276
+    },
+    {
+      "offset": "0x4c000",
+      "size": 4096,
+      "entropy": 5.5524,
+      "zero_ratio": 0.2776,
+      "ff_ratio": 0.0032
+    },
+    {
+      "offset": "0x4d000",
+      "size": 4096,
+      "entropy": 6.6138,
+      "zero_ratio": 0.1685,
+      "ff_ratio": 0.0024
+    },
+    {
+      "offset": "0x4e000",
+      "size": 4096,
+      "entropy": 7.066,
+      "zero_ratio": 0.0857,
+      "ff_ratio": 0.0017
+    },
+    {
+      "offset": "0x4f000",
+      "size": 4096,
+      "entropy": 4.5068,
+      "zero_ratio": 0.4331,
+      "ff_ratio": 0.0229
+    },
+    {
+      "offset": "0x50000",
+      "size": 4096,
+      "entropy": 6.6256,
+      "zero_ratio": 0.0503,
+      "ff_ratio": 0.02
+    },
+    {
+      "offset": "0x51000",
+      "size": 4096,
+      "entropy": 5.9055,
+      "zero_ratio": 0.0562,
+      "ff_ratio": 0.0049
+    },
+    {
+      "offset": "0x52000",
+      "size": 4096,
+      "entropy": 4.7218,
+      "zero_ratio": 0.2974,
+      "ff_ratio": 0.0173
+    },
+    {
+      "offset": "0x53000",
+      "size": 4096,
+      "entropy": 1.647,
+      "zero_ratio": 0.8181,
+      "ff_ratio": 0.0061
+    },
+    {
+      "offset": "0x54000",
+      "size": 4096,
+      "entropy": 3.1947,
+      "zero_ratio": 0.5237,
+      "ff_ratio": 0.0066
+    },
+    {
+      "offset": "0x55000",
+      "size": 2793,
+      "entropy": 3.9542,
+      "zero_ratio": 0.4697,
+      "ff_ratio": 0.0014
+    }
+  ],
+  "checks": {
+    "sha256_matches_known_release": true,
+    "embedded_sha512_valid": true,
+    "expected_header_size": true,
+    "expected_ram_load_address": true,
+    "expected_ram_load_flag": true,
+    "mapped_file_fits_ram": true,
+    "image_body_fits_ram": true,
+    "initial_stack_pointer_in_ram": true,
+    "header_version_embedded_in_payload": true,
+    "no_common_plaintext_secret_pattern": true
+  },
+  "limitations": [
+    "Ed25519 authenticity is not independently verified without the bootloader public key.",
+    "Static analysis cannot prove runtime behavior, timing safety, or power-loss recovery.",
+    "RAM margins are address-space observations, not measured runtime stack/heap high-water marks."
+  ]
+}

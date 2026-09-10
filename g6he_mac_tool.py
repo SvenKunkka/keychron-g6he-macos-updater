@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-"""macOS firmware inspection and HID protocol tooling for Keychron G6 HE."""
+"""macOS firmware inspection and HID upgrade tooling for Keychron mice."""
 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 import math
+import os
+import re
 import struct
+import subprocess
 import sys
 import time
 from dataclasses import asdict, dataclass
@@ -18,14 +22,12 @@ from typing import Any
 MCUBOOT_MAGIC = 0x96F3B83D
 MCUBOOT_TLV_MAGIC = 0x6907
 KEYCHRON_VID = 0x3434
-G6_HE_PID = 0xD086
 UPGRADE_USAGE_PAGE = 0x008C
 UPGRADE_USAGE = 0x0001
 OUTPUT_REPORT_ID = 0xB2
 INPUT_REPORT_ID = 0xB1
 REPORT_SIZE = 33
 CHUNK_SIZE = 16
-TARGET_MODEL = "54LMG6HE"
 TLV_NAMES = {
     0x01: "key_hash",
     0x10: "sha256",
@@ -37,6 +39,36 @@ TLV_NAMES = {
     0x23: "rsa3072_pss_signature",
     0x24: "ed25519_signature",
     0x25: "signature_pure_flag",
+}
+DIGEST_TYPES = {0x10: hashlib.sha256, 0x11: hashlib.sha384, 0x12: hashlib.sha512}
+SIGNATURE_TYPES = {0x20, 0x21, 0x22, 0x23, 0x24}
+VERSION_PATTERN = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)\+(\d+)$")
+
+
+@dataclass(frozen=True)
+class DeviceProfile:
+    model: str
+    display_name: str
+    product_ids: tuple[int, ...]
+    ram_start: int | None = None
+    ram_end: int | None = None
+    validation_status: str = "protocol_compatible"
+
+
+KNOWN_DEVICE_PROFILES = {
+    "54LMG6HE": DeviceProfile(
+        model="54LMG6HE",
+        display_name="Keychron G6 HE 8K",
+        product_ids=(0xD086,),
+        ram_start=0x20000000,
+        ram_end=0x20080000,
+        validation_status="hardware_verified",
+    ),
+}
+TRUSTED_RELEASE_HASHES = {
+    "54LMG6HE": {
+        "38f5bbb0ff3eec06600c766094a01c5da987c75d17192b35acc89dd0aed0695a"
+    }
 }
 
 
@@ -87,8 +119,18 @@ def inspect_firmware(path: Path) -> dict[str, Any]:
         raise FirmwareError(
             f"unexpected image magic 0x{magic:08x}; expected MCUboot 0x{MCUBOOT_MAGIC:08x}"
         )
-    if header_size < 32 or header_size > len(data):
+    if header_size < 32 or header_size > min(len(data), 0x10000):
         raise FirmwareError(f"invalid MCUboot header size: {header_size}")
+    if header_size % 4:
+        raise FirmwareError("MCUboot header size is not 4-byte aligned")
+    if image_size < 8:
+        raise FirmwareError("firmware payload is too small to contain a vector table")
+    if load_address in (0, 0xFFFFFFFF):
+        raise FirmwareError("invalid MCUboot load address")
+    if protected_tlv_size:
+        raise FirmwareError(
+            "protected MCUboot TLVs are not supported by this updater yet"
+        )
 
     tlv_offset = header_size + image_size
     if tlv_offset + 4 > len(data):
@@ -98,6 +140,8 @@ def inspect_firmware(path: Path) -> dict[str, Any]:
         raise FirmwareError(
             f"unexpected TLV magic 0x{tlv_magic:04x} at 0x{tlv_offset:x}"
         )
+    if tlv_total < 4:
+        raise FirmwareError("invalid MCUboot TLV total size")
     if tlv_offset + tlv_total != len(data):
         raise FirmwareError(
             "TLV total does not end at EOF: "
@@ -107,11 +151,16 @@ def inspect_firmware(path: Path) -> dict[str, Any]:
     tlvs: list[dict[str, Any]] = []
     cursor = tlv_offset + 4
     expected_end = tlv_offset + tlv_total
-    sha512_verified = False
+    verified_digest: str | None = None
+    digest_count = 0
+    key_hash_count = 0
+    signature_count = 0
     while cursor < expected_end:
         if cursor + 4 > expected_end:
             raise FirmwareError("truncated TLV header")
         tlv_type, pad, length = struct.unpack_from("<BBH", data, cursor)
+        if pad != 0:
+            raise FirmwareError(f"non-zero TLV reserved byte at 0x{cursor:x}")
         value_start = cursor + 4
         value_end = value_start + length
         if value_end > expected_end:
@@ -125,38 +174,66 @@ def inspect_firmware(path: Path) -> dict[str, Any]:
             "length": length,
             "value_sha256": hashlib.sha256(value).hexdigest(),
         }
-        if tlv_type == 0x12 and length == 64:
-            sha512_verified = hashlib.sha512(data[:tlv_offset]).digest() == value
-            item["matches_header_and_payload"] = sha512_verified
+        if tlv_type in DIGEST_TYPES:
+            digest_count += 1
+            digest = DIGEST_TYPES[tlv_type]
+            expected_length = digest().digest_size
+            if length != expected_length:
+                raise FirmwareError(
+                    f"invalid {TLV_NAMES[tlv_type]} TLV length {length}"
+                )
+            matches = digest(data[:tlv_offset]).digest() == value
+            item["matches_header_and_payload"] = matches
+            if matches:
+                verified_digest = TLV_NAMES[tlv_type]
+        elif tlv_type == 0x01:
+            key_hash_count += 1
+            if length not in (32, 48, 64):
+                raise FirmwareError(f"invalid key-hash TLV length {length}")
+        elif tlv_type in SIGNATURE_TYPES:
+            signature_count += 1
+            if length == 0:
+                raise FirmwareError("empty signature TLV")
         elif tlv_type == 0x25 and length == 1:
             item["value"] = value[0]
         tlvs.append(item)
         cursor = value_end
 
-    if not sha512_verified:
-        raise FirmwareError("embedded SHA-512 does not match the header and payload")
+    if digest_count != 1:
+        raise FirmwareError(f"expected exactly one image digest TLV, found {digest_count}")
+    if verified_digest is None:
+        raise FirmwareError("embedded image digest does not match the header and payload")
+    if key_hash_count != 1:
+        raise FirmwareError(f"expected exactly one key-hash TLV, found {key_hash_count}")
+    if signature_count != 1:
+        raise FirmwareError(f"expected exactly one signature TLV, found {signature_count}")
 
     initial_sp = reset_vector = None
     if header_size + 8 <= tlv_offset:
         initial_sp, reset_vector = struct.unpack_from("<II", data, header_size)
+    if initial_sp in (0, 0xFFFFFFFF):
+        raise FirmwareError("invalid initial stack pointer in payload vector table")
+    if reset_vector in (0, 0xFFFFFFFF) or reset_vector & 1 == 0:
+        raise FirmwareError("invalid Thumb reset vector in payload vector table")
 
     strings = _printable_strings(data[header_size:tlv_offset])
-    identifiers = [
-        value
-        for value in strings
-        if value in {
-            "Keychron G6 HE 8K",
-            "Keychron G6 HE",
-            "G6 HE 8K",
-            "nrf54lm20a",
-            "KCFWID",
-            "54LMG6HE",
-            "54LMv1.0",
-            "1.0.0+84",
-            "Sep 10 2026",
-            "15:10:32",
+    model_candidates = sorted(
+        {
+            value
+            for value in strings
+            if value in KNOWN_DEVICE_PROFILES
+            or re.fullmatch(r"\d{2}[A-Z0-9]{6,10}", value)
         }
-    ]
+    )
+    identifiers = sorted(
+        {
+            value
+            for value in strings
+            if value in model_candidates
+            or "Keychron" in value
+            or VERSION_PATTERN.fullmatch(value)
+        }
+    )
 
     header = ImageHeader(
         magic=f"0x{magic:08x}",
@@ -180,15 +257,54 @@ def inspect_firmware(path: Path) -> dict[str, Any]:
         },
         "tlv_offset": f"0x{tlv_offset:x}",
         "tlv_total_size": tlv_total,
-        "embedded_sha512_verified": sha512_verified,
+        "embedded_digest_verified": True,
+        "verified_digest": verified_digest,
+        "embedded_sha512_verified": verified_digest == "sha512",
         "tlvs": tlvs,
-        "embedded_identifiers": sorted(set(identifiers)),
+        "embedded_identifiers": identifiers,
+        "firmware_model_candidates": model_candidates,
+        "authentication": {
+            "key_hash_tlv_count": key_hash_count,
+            "signature_tlv_count": signature_count,
+            "host_signature_verified": False,
+        },
         "signature_note": (
-            "The image contains an Ed25519 signature and key hash, but the public "
-            "key is not present in this package; only the embedded SHA-512 can be "
-            "verified locally. The target bootloader must authenticate the signature."
+            "The image contains a signature and key hash, but a matching public key "
+            "is not configured on the host. The target bootloader must authenticate "
+            "the signature."
         ),
     }
+
+
+def _path_bytes(path: Any) -> bytes:
+    if isinstance(path, bytes):
+        return path
+    return str(path).encode("utf-8", errors="surrogateescape")
+
+
+def _device_id(item: dict[str, Any]) -> str:
+    return hashlib.sha256(_path_bytes(item.get("path", b""))).hexdigest()[:16]
+
+
+def _serialize_interface(item: dict[str, Any], *, include_path: bool = False) -> dict[str, Any]:
+    path = item.get("path")
+    if isinstance(path, bytes):
+        path = path.decode("utf-8", errors="backslashreplace")
+    result = {
+        "device_id": _device_id(item),
+        "vendor_id": f"0x{int(item.get('vendor_id', 0)):04x}",
+        "product_id": f"0x{int(item.get('product_id', 0)):04x}",
+        "manufacturer": item.get("manufacturer_string") or "",
+        "product": item.get("product_string") or "",
+        "serial_number": item.get("serial_number") or "",
+        "usage_page": f"0x{int(item.get('usage_page', 0)):04x}",
+        "usage": f"0x{int(item.get('usage', 0)):04x}",
+        "interface_number": item.get("interface_number"),
+        "release_number": item.get("release_number"),
+    }
+    if include_path:
+        result["path"] = path
+    return result
 
 
 def list_hid_devices() -> list[dict[str, Any]]:
@@ -200,29 +316,10 @@ def list_hid_devices() -> list[dict[str, Any]]:
         ) from exc
 
     devices: list[dict[str, Any]] = []
-    for item in hid.enumerate():
-        manufacturer = item.get("manufacturer_string") or ""
-        product = item.get("product_string") or ""
-        haystack = f"{manufacturer} {product}".lower()
-        if "keychron" not in haystack and "g6" not in haystack:
+    for item in hid.enumerate(KEYCHRON_VID, 0):
+        if int(item.get("vendor_id", 0)) != KEYCHRON_VID:
             continue
-        path = item.get("path")
-        if isinstance(path, bytes):
-            path = path.decode("utf-8", errors="backslashreplace")
-        devices.append(
-            {
-                "vendor_id": f"0x{int(item.get('vendor_id', 0)):04x}",
-                "product_id": f"0x{int(item.get('product_id', 0)):04x}",
-                "manufacturer": manufacturer,
-                "product": product,
-                "serial_number": item.get("serial_number") or "",
-                "usage_page": f"0x{int(item.get('usage_page', 0)):04x}",
-                "usage": f"0x{int(item.get('usage', 0)):04x}",
-                "interface_number": item.get("interface_number"),
-                "release_number": item.get("release_number"),
-                "path": path,
-            }
-        )
+        devices.append(_serialize_interface(item, include_path=True))
     return devices
 
 
@@ -236,23 +333,32 @@ def _import_hid() -> Any:
     return hid
 
 
-def _find_upgrade_interface() -> dict[str, Any]:
+def _upgrade_interfaces() -> list[dict[str, Any]]:
     hid = _import_hid()
-    matches = [
+    return [
         item
-        for item in hid.enumerate(KEYCHRON_VID, G6_HE_PID)
+        for item in hid.enumerate(KEYCHRON_VID, 0)
+        if int(item.get("vendor_id", 0)) == KEYCHRON_VID
         if int(item.get("usage_page", 0)) == UPGRADE_USAGE_PAGE
         and int(item.get("usage", 0)) == UPGRADE_USAGE
     ]
+
+
+def _find_upgrade_interface(device_id: str | None = None) -> dict[str, Any]:
+    matches = _upgrade_interfaces()
+    if device_id is not None:
+        matches = [item for item in matches if _device_id(item) == device_id]
     if len(matches) == 1:
         return matches[0]
     if not matches:
+        suffix = f" for selection {device_id}" if device_id else ""
         raise ProtocolError(
-            "G6 HE USB upgrade interface not found; switch the mouse to wired mode "
-            "and connect it directly by USB cable"
+            "Keychron mouse USB upgrade interface not found"
+            f"{suffix}; switch the mouse to wired mode and connect it directly by USB"
         )
     raise ProtocolError(
-        f"refusing an ambiguous device selection ({len(matches)} upgrade interfaces)"
+        f"multiple Keychron mouse upgrade interfaces found ({len(matches)}); "
+        "select one with --device"
     )
 
 
@@ -392,22 +498,72 @@ def _query_open_device(device: Any, sequence: int = 1) -> tuple[dict[str, Any], 
     )
 
 
-def query_device() -> dict[str, Any]:
+def _device_compatibility(
+    interface: dict[str, Any], device_info: dict[str, Any]
+) -> dict[str, Any]:
+    reasons: list[str] = []
+    if device_info["protocol_version"] != 1:
+        reasons.append(f"unsupported protocol {device_info['protocol_version']}")
+    if device_info["dfu_version"] != 0:
+        reasons.append(f"unsupported DFU {device_info['dfu_version']}")
+    if not device_info["supported_update_modes"] & 0x01:
+        reasons.append("standard firmware update mode is not advertised")
+    if device_info["bootloader_required"]:
+        reasons.append("an unverified bootloader transition is required")
+
+    profile = KNOWN_DEVICE_PROFILES.get(device_info["model"])
+    product_id = int(interface.get("product_id", 0))
+    if profile and product_id not in profile.product_ids:
+        reasons.append(
+            f"known model {profile.model} has unexpected USB product ID 0x{product_id:04x}"
+        )
+    return {
+        "compatible": not reasons,
+        "compatibility_status": (
+            profile.validation_status if profile and not reasons else
+            "protocol_compatible_unverified_model" if not reasons else
+            "incompatible"
+        ),
+        "display_name": profile.display_name if profile else (
+            interface.get("product_string") or device_info["model"] or "Keychron Mouse"
+        ),
+        "compatibility_reasons": reasons,
+    }
+
+
+def query_device(
+    device_id: str | None = None, *, interface: dict[str, Any] | None = None
+) -> dict[str, Any]:
     hid = _import_hid()
-    interface = _find_upgrade_interface()
+    interface = interface or _find_upgrade_interface(device_id)
     with hid.Device(path=interface["path"]) as device:
         device_info, _ = _query_open_device(device)
-    path = interface.get("path")
-    if isinstance(path, bytes):
-        path = path.decode("utf-8", errors="backslashreplace")
     return {
-        "vendor_id": f"0x{int(interface.get('vendor_id', 0)):04x}",
-        "product_id": f"0x{int(interface.get('product_id', 0)):04x}",
-        "product": interface.get("product_string") or "",
-        "path": path,
+        **_serialize_interface(interface),
         **device_info,
+        **_device_compatibility(interface, device_info),
         "write_attempted": False,
     }
+
+
+def discover_devices() -> list[dict[str, Any]]:
+    devices: list[dict[str, Any]] = []
+    for interface in _upgrade_interfaces():
+        try:
+            devices.append(query_device(interface=interface))
+        except Exception as exc:
+            devices.append(
+                {
+                    **_serialize_interface(interface),
+                    "display_name": interface.get("product_string") or "Keychron Mouse",
+                    "compatible": False,
+                    "compatibility_status": "probe_failed",
+                    "compatibility_reasons": [str(exc)],
+                    "probe_error": str(exc),
+                    "write_attempted": False,
+                }
+            )
+    return devices
 
 
 def _next_sequence(sequence: int) -> int:
@@ -425,68 +581,170 @@ def updater_crc32(data: bytes, initial: int = 0xFFFFFFFF) -> int:
     return crc & 0xFFFFFFFF
 
 
+def _version_key(value: str) -> tuple[int, int, int, int] | None:
+    match = VERSION_PATTERN.fullmatch(value)
+    if not match:
+        return None
+    return tuple(int(part) for part in match.groups())  # type: ignore[return-value]
+
+
+def _version_relation(current: str, target: str) -> str:
+    current_key = _version_key(current)
+    target_key = _version_key(target)
+    if current_key is None or target_key is None:
+        return "unknown"
+    if target_key == current_key:
+        return "same"
+    return "upgrade" if target_key > current_key else "downgrade"
+
+
+@contextlib.contextmanager
+def _prevent_system_sleep() -> Any:
+    assertion: subprocess.Popen[bytes] | None = None
+    if sys.platform == "darwin" and Path("/usr/bin/caffeinate").exists():
+        assertion = subprocess.Popen(
+            ["/usr/bin/caffeinate", "-dimsu", "-w", str(os.getpid())],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    try:
+        yield
+    finally:
+        if assertion is not None and assertion.poll() is None:
+            assertion.terminate()
+            try:
+                assertion.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                assertion.kill()
+                assertion.wait(timeout=2)
+
+
 def _validate_upgrade_target(
-    firmware_report: dict[str, Any], device_info: dict[str, Any]
+    firmware_report: dict[str, Any], device_info: dict[str, Any], firmware_data: bytes
 ) -> None:
-    if TARGET_MODEL not in firmware_report["embedded_identifiers"]:
+    target_model = device_info["model"]
+    header_size = int(firmware_report["header"]["header_size"])
+    tlv_offset = int(firmware_report["tlv_offset"], 16)
+    embedded_strings = set(
+        _printable_strings(firmware_data[header_size:tlv_offset], minimum=4)
+    )
+    if target_model not in embedded_strings:
         raise FirmwareError(
-            f"firmware does not contain the required model identifier {TARGET_MODEL}"
+            f"firmware does not contain the selected device model {target_model!r}"
         )
-    if device_info["model"] != TARGET_MODEL:
-        raise ProtocolError(
-            f"connected model {device_info['model']!r} does not match {TARGET_MODEL}"
-        )
-    if device_info["protocol_version"] != 1:
-        raise ProtocolError(
-            f"unsupported updater protocol {device_info['protocol_version']}"
-        )
-    if device_info["dfu_version"] != 0:
-        raise ProtocolError(f"unsupported DFU version {device_info['dfu_version']}")
-    if not device_info["supported_update_modes"] & 0x01:
-        raise ProtocolError("device does not advertise standard firmware update mode")
-    if device_info["bootloader_required"]:
-        raise ProtocolError(
-            "this device requires a bootloader transition that is not enabled by this tool"
-        )
+    if not device_info["compatible"]:
+        raise ProtocolError("; ".join(device_info["compatibility_reasons"]))
+
+    profile = KNOWN_DEVICE_PROFILES.get(target_model)
+    if profile and profile.ram_start is not None and profile.ram_end is not None:
+        load_address = int(firmware_report["header"]["load_address"], 16)
+        header_size = int(firmware_report["header"]["header_size"])
+        image_size = int(firmware_report["header"]["image_size"])
+        initial_sp = int(firmware_report["payload_vector"]["initial_sp"], 16)
+        reset_vector = int(firmware_report["payload_vector"]["reset_vector"], 16) & ~1
+        image_end = load_address + header_size + image_size
+        if not (
+            profile.ram_start <= load_address < image_end <= profile.ram_end
+            and profile.ram_start <= initial_sp <= profile.ram_end
+            and profile.ram_start <= reset_vector < image_end
+        ):
+            raise FirmwareError(
+                f"firmware memory layout is outside the verified range for {target_model}"
+            )
+
+
+def _query_after_restart(
+    expected_model: str, preferred_device_id: str, preferred_product_id: str
+) -> dict[str, Any]:
+    try:
+        candidate = query_device(preferred_device_id)
+        if candidate["model"] == expected_model:
+            return candidate
+    except Exception:
+        pass
+    matches = [
+        candidate
+        for candidate in discover_devices()
+        if candidate.get("model") == expected_model
+        and candidate.get("product_id") == preferred_product_id
+    ]
+    if len(matches) == 1:
+        return matches[0]
+    if not matches:
+        raise ProtocolError(f"restarted device model {expected_model} was not found")
+    raise ProtocolError(
+        f"multiple restarted devices match model {expected_model}; verification is ambiguous"
+    )
 
 
 def upgrade_firmware(
-    path: Path, *, dry_run: bool, confirmation: str | None
+    path: Path,
+    *,
+    device_id: str | None,
+    dry_run: bool,
+    confirmation: str | None,
+    allow_downgrade: bool = False,
 ) -> dict[str, Any]:
     firmware_report = inspect_firmware(path)
     data = path.read_bytes()
+    if hashlib.sha256(data).hexdigest() != firmware_report["sha256"]:
+        raise FirmwareError("firmware file changed while it was being validated")
     file_crc = updater_crc32(data)
     hid = _import_hid()
-    interface = _find_upgrade_interface()
+    interface = _find_upgrade_interface(device_id)
+    selected_device_id = _device_id(interface)
 
     with hid.Device(path=interface["path"]) as device:
-        device_info, sequence = _query_open_device(device)
-        _validate_upgrade_target(firmware_report, device_info)
+        raw_device_info, sequence = _query_open_device(device)
+        device_info = {
+            **_serialize_interface(interface),
+            **raw_device_info,
+            **_device_compatibility(interface, raw_device_info),
+        }
+        _validate_upgrade_target(firmware_report, device_info, data)
         target_version = firmware_report["header"]["version"]
-        if device_info["firmware_version"] == target_version:
+        version_relation = _version_relation(
+            device_info["firmware_version"], target_version
+        )
+        trusted_hashes = TRUSTED_RELEASE_HASHES.get(device_info["model"], set())
+        trust_status = (
+            "known_release_hash"
+            if firmware_report["sha256"] in trusted_hashes
+            else "bootloader_signature_only"
+        )
+        common_result = {
+            "device": device_info,
+            "target_version": target_version,
+            "version_relation": version_relation,
+            "firmware_sha256": firmware_report["sha256"],
+            "firmware_crc32": f"0x{file_crc:08x}",
+            "firmware_trust_status": trust_status,
+            "host_signature_verified": False,
+        }
+        if version_relation == "same":
             return {
                 "status": "already_current",
-                "device": device_info,
-                "target_version": target_version,
-                "firmware_sha256": firmware_report["sha256"],
-                "firmware_crc32": f"0x{file_crc:08x}",
+                **common_result,
                 "write_attempted": False,
                 "verified_after_restart": True,
             }
         if dry_run:
             return {
                 "status": "ready",
-                "device": device_info,
-                "target_version": target_version,
+                **common_result,
                 "firmware_size": len(data),
-                "firmware_sha256": firmware_report["sha256"],
-                "firmware_crc32": f"0x{file_crc:08x}",
                 "chunks": math.ceil(len(data) / CHUNK_SIZE),
+                "requires_downgrade_confirmation": version_relation == "downgrade",
                 "write_attempted": False,
             }
-        if confirmation != TARGET_MODEL:
+        if version_relation == "downgrade" and not allow_downgrade:
             raise ProtocolError(
-                f"actual upgrade requires --confirm {TARGET_MODEL}"
+                f"refusing firmware downgrade {device_info['firmware_version']} -> "
+                f"{target_version}; pass --allow-downgrade only when intentional"
+            )
+        if confirmation != device_info["model"]:
+            raise ProtocolError(
+                f"actual upgrade requires --confirm {device_info['model']}"
             )
 
         print(
@@ -495,63 +753,89 @@ def upgrade_firmware(
             file=sys.stderr,
             flush=True,
         )
-        exchange(device, sequence, b"\x62\x00")
-        sequence = _next_sequence(sequence)
-        exchange(device, sequence, b"\x63", update_frame=True)
-        sequence = _next_sequence(sequence)
+        hid_exception = getattr(hid, "HIDException", None)
+        retryable_errors: tuple[type[BaseException], ...] = (OSError, ProtocolError)
+        if isinstance(hid_exception, type) and issubclass(hid_exception, BaseException):
+            retryable_errors += (hid_exception,)
 
         running_crc = 0xFFFFFFFF
         total_chunks = math.ceil(len(data) / CHUNK_SIZE)
-        last_percent = -1
-        for chunk_index, offset in enumerate(range(0, len(data), CHUNK_SIZE), 1):
-            chunk = data[offset : offset + CHUNK_SIZE]
-            last_error: Exception | None = None
-            for _attempt in range(5):
-                try:
-                    exchange(
-                        device,
-                        sequence,
-                        b"\x64" + chunk,
-                        update_frame=True,
-                    )
-                    last_error = None
-                    break
-                except (OSError, ProtocolError) as exc:
-                    last_error = exc
-            if last_error is not None:
-                raise ProtocolError(
-                    f"data transfer failed at offset 0x{offset:x} after 5 attempts: "
-                    f"{last_error}"
-                )
-            running_crc = updater_crc32(chunk, running_crc)
-            sequence = _next_sequence(sequence)
-            percent = chunk_index * 100 // total_chunks
-            if percent >= last_percent + 5 or chunk_index == total_chunks:
-                print(
-                    f"Progress: {percent}% ({chunk_index}/{total_chunks})",
-                    file=sys.stderr,
-                    flush=True,
-                )
-                last_percent = percent
+        update_mode_entered = False
+        try:
+            with _prevent_system_sleep():
+                exchange(device, sequence, b"\x62\x00")
+                update_mode_entered = True
+                sequence = _next_sequence(sequence)
+                exchange(device, sequence, b"\x63", update_frame=True)
+                sequence = _next_sequence(sequence)
 
-        if running_crc != file_crc:
-            raise ProtocolError(
-                f"local streaming CRC mismatch: 0x{running_crc:08x} != 0x{file_crc:08x}"
-            )
-        exchange(
-            device,
-            sequence,
-            b"\x65" + struct.pack("<II", file_crc, running_crc),
-        )
-        sequence = _next_sequence(sequence)
-        exchange(device, sequence, b"\x66", expect_response=False)
+                last_percent = -1
+                for chunk_index, offset in enumerate(range(0, len(data), CHUNK_SIZE), 1):
+                    chunk = data[offset : offset + CHUNK_SIZE]
+                    last_error: Exception | None = None
+                    for attempt in range(5):
+                        try:
+                            exchange(
+                                device,
+                                sequence,
+                                b"\x64" + chunk,
+                                update_frame=True,
+                            )
+                            last_error = None
+                            break
+                        except retryable_errors as exc:
+                            last_error = exc
+                            if attempt < 4:
+                                time.sleep(0.02 * (attempt + 1))
+                    if last_error is not None:
+                        raise ProtocolError(
+                            f"data transfer failed at offset 0x{offset:x} after 5 attempts: "
+                            f"{last_error}"
+                        )
+                    running_crc = updater_crc32(chunk, running_crc)
+                    sequence = _next_sequence(sequence)
+                    percent = chunk_index * 100 // total_chunks
+                    if percent >= last_percent + 5 or chunk_index == total_chunks:
+                        print(
+                            f"Progress: {percent}% ({chunk_index}/{total_chunks})",
+                            file=sys.stderr,
+                            flush=True,
+                        )
+                        last_percent = percent
+
+                if running_crc != file_crc:
+                    raise ProtocolError(
+                        f"local streaming CRC mismatch: 0x{running_crc:08x} != "
+                        f"0x{file_crc:08x}"
+                    )
+                exchange(
+                    device,
+                    sequence,
+                    b"\x65" + struct.pack("<II", file_crc, running_crc),
+                )
+                sequence = _next_sequence(sequence)
+                exchange(device, sequence, b"\x66", expect_response=False)
+                update_mode_entered = False
+        except Exception as exc:
+            recovery = "update mode was not entered"
+            if update_mode_entered:
+                try:
+                    exchange(device, sequence, b"\x66", expect_response=False)
+                    recovery = "a best-effort reset command was sent"
+                except Exception as recovery_exc:
+                    recovery = f"reset attempt failed: {recovery_exc}"
+            raise ProtocolError(f"upgrade interrupted; {recovery}: {exc}") from exc
 
     verified: dict[str, Any] | None = None
     last_verification_error: Exception | None = None
     for _ in range(30):
         time.sleep(0.5)
         try:
-            candidate = query_device()
+            candidate = _query_after_restart(
+                device_info["model"],
+                selected_device_id,
+                device_info["product_id"],
+            )
             if candidate["firmware_version"] == target_version:
                 verified = candidate
                 break
@@ -567,11 +851,9 @@ def upgrade_firmware(
         )
     return {
         "status": "upgraded_and_verified",
+        **common_result,
         "previous_version": device_info["firmware_version"],
-        "target_version": target_version,
         "device": verified,
-        "firmware_sha256": firmware_report["sha256"],
-        "firmware_crc32": f"0x{file_crc:08x}",
         "bytes_written": len(data),
         "chunks_written": total_chunks,
         "write_attempted": True,
@@ -581,26 +863,38 @@ def upgrade_firmware(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Safe G6 HE firmware inspection and HID discovery for macOS"
+        description="Safe Keychron mouse firmware inspection and HID upgrade for macOS"
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
     inspect_parser = subparsers.add_parser(
         "inspect", help="validate a firmware package without touching a device"
     )
     inspect_parser.add_argument("firmware", type=Path)
-    subparsers.add_parser("list", help="list matching HID interfaces without writing")
+    subparsers.add_parser("list", help="list all Keychron HID interfaces without writing")
     subparsers.add_parser(
-        "probe", help="query the connected G6 HE model and firmware version"
+        "devices", help="discover and probe Keychron mouse upgrade interfaces"
     )
+    probe_parser = subparsers.add_parser(
+        "probe", help="query one Keychron mouse model and firmware version"
+    )
+    probe_parser.add_argument("--device", help="device_id returned by the devices command")
     upgrade_parser = subparsers.add_parser(
-        "upgrade", help="validate or install a G6 HE signed firmware image"
+        "upgrade", help="validate or install a signed Keychron mouse firmware image"
     )
     upgrade_parser.add_argument("firmware", type=Path)
+    upgrade_parser.add_argument(
+        "--device", help="device_id returned by the devices command"
+    )
     upgrade_parser.add_argument(
         "--dry-run", action="store_true", help="validate without sending update commands"
     )
     upgrade_parser.add_argument(
-        "--confirm", help=f"required for writes; must be exactly {TARGET_MODEL}"
+        "--confirm", help="required for writes; must exactly match the device model"
+    )
+    upgrade_parser.add_argument(
+        "--allow-downgrade",
+        action="store_true",
+        help="allow an intentional target version lower than the running version",
     )
     return parser
 
@@ -612,15 +906,21 @@ def main(argv: list[str] | None = None) -> int:
             result: Any = inspect_firmware(args.firmware)
         elif args.command == "list":
             result = {"matching_devices": list_hid_devices(), "write_attempted": False}
+        elif args.command == "devices":
+            result = {"devices": discover_devices(), "write_attempted": False}
         elif args.command == "probe":
-            result = query_device()
+            result = query_device(args.device)
         elif args.command == "upgrade":
             result = upgrade_firmware(
-                args.firmware, dry_run=args.dry_run, confirmation=args.confirm
+                args.firmware,
+                device_id=args.device,
+                dry_run=args.dry_run,
+                confirmation=args.confirm,
+                allow_downgrade=args.allow_downgrade,
             )
         else:  # pragma: no cover - argparse enforces the choices.
             raise AssertionError(args.command)
-    except (FirmwareError, OSError, RuntimeError, ValueError) as exc:
+    except Exception as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2), file=sys.stderr)
         return 1
     print(json.dumps({"ok": True, "result": result}, indent=2))

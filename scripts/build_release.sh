@@ -3,16 +3,15 @@
 set -euo pipefail
 
 PROJECT_DIR="${0:A:h:h}"
-VERSION="${VERSION:-1.0.0}"
-APP_NAME="G6 HE Firmware Updater"
+VERSION="${VERSION:-1.1.0}"
+APP_NAME="Keychron Mouse Firmware Updater"
 BUILD_DIR="$PROJECT_DIR/build-release"
 DIST_DIR="$PROJECT_DIR/dist"
 APP_PATH="$BUILD_DIR/$APP_NAME.app"
-FIRMWARE_NAME="G6HE_v1.0.0+84_202609101503.signed.bin"
 VENV_DIR="$PROJECT_DIR/.build-venv"
 
-if [[ ! -f "$PROJECT_DIR/g6he_mac_tool.py" || ! -f "$PROJECT_DIR/firmware/$FIRMWARE_NAME" ]]; then
-  echo "Project files or bundled firmware are missing." >&2
+if [[ ! -f "$PROJECT_DIR/keychron_mouse_updater.py" || ! -f "$PROJECT_DIR/macos-app/Sources/main.m" ]]; then
+  echo "Project source files are missing." >&2
   exit 1
 fi
 
@@ -36,21 +35,22 @@ mkdir -p "$BUILD_DIR/pyinstaller" "$DIST_DIR"
   --noconfirm \
   --clean \
   --onefile \
-  --name g6he-updater-cli \
+  --name keychron-mouse-updater-cli \
   --distpath "$BUILD_DIR/pyinstaller" \
   --workpath "$BUILD_DIR/pyinstaller-work" \
   --specpath "$BUILD_DIR" \
   --add-binary "$HIDAPI_PREFIX/lib/libhidapi.dylib:." \
-  "$PROJECT_DIR/g6he_mac_tool.py"
+  "$PROJECT_DIR/keychron_mouse_updater.py"
 
-mkdir -p "$APP_PATH/Contents/MacOS" "$APP_PATH/Contents/Resources/Firmware" "$APP_PATH/Contents/Resources/Licenses"
+mkdir -p "$APP_PATH/Contents/MacOS" "$APP_PATH/Contents/Resources/Licenses"
 clang -fobjc-arc -fblocks -mmacosx-version-min=13.0 -framework Cocoa \
   -framework UniformTypeIdentifiers \
-  -o "$APP_PATH/Contents/MacOS/G6HEFirmwareUpdater" \
+  -o "$APP_PATH/Contents/MacOS/KeychronMouseFirmwareUpdater" \
   "$PROJECT_DIR/macos-app/Sources/main.m"
 cp "$PROJECT_DIR/macos-app/Info.plist" "$APP_PATH/Contents/Info.plist"
-cp "$BUILD_DIR/pyinstaller/g6he-updater-cli" "$APP_PATH/Contents/MacOS/g6he-updater-cli"
-cp "$PROJECT_DIR/firmware/$FIRMWARE_NAME" "$APP_PATH/Contents/Resources/Firmware/$FIRMWARE_NAME"
+cp "$BUILD_DIR/pyinstaller/keychron-mouse-updater-cli" "$APP_PATH/Contents/MacOS/keychron-mouse-updater-cli"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP_PATH/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${VERSION//./}" "$APP_PATH/Contents/Info.plist"
 cp "$HIDAPI_PREFIX/LICENSE-bsd.txt" "$APP_PATH/Contents/Resources/Licenses/hidapi-BSD.txt"
 cp "$PROJECT_DIR/LICENSE" "$APP_PATH/Contents/Resources/Licenses/application-MIT.txt"
 
@@ -71,23 +71,21 @@ fi
 codesign --force --deep --sign - "$APP_PATH"
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
-ZIP_PATH="$DIST_DIR/G6HE-Firmware-Updater-v$VERSION-macOS-arm64.zip"
+ZIP_PATH="$DIST_DIR/Keychron-Mouse-Firmware-Updater-v$VERSION-macOS-arm64.zip"
 ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$ZIP_PATH"
 
 DMG_STAGE="$BUILD_DIR/dmg"
 mkdir -p "$DMG_STAGE"
 cp -R "$APP_PATH" "$DMG_STAGE/"
 ln -s /Applications "$DMG_STAGE/Applications"
-DMG_PATH="$DIST_DIR/G6HE-Firmware-Updater-v$VERSION-macOS-arm64.dmg"
-hdiutil create -ov -volname "G6 HE Firmware Updater" -srcfolder "$DMG_STAGE" -format UDZO "$DMG_PATH"
+DMG_PATH="$DIST_DIR/Keychron-Mouse-Firmware-Updater-v$VERSION-macOS-arm64.dmg"
+hdiutil create -ov -volname "Keychron Mouse Firmware Updater" -srcfolder "$DMG_STAGE" -format UDZO "$DMG_PATH"
 
-cp "$PROJECT_DIR/firmware/$FIRMWARE_NAME" "$DIST_DIR/$FIRMWARE_NAME"
 (
   cd "$DIST_DIR"
   shasum -a 256 \
     "${DMG_PATH:t}" \
-    "${ZIP_PATH:t}" \
-    "$FIRMWARE_NAME" > SHA256SUMS.txt
+    "${ZIP_PATH:t}" > SHA256SUMS-v$VERSION.txt
 )
 echo "Built:"
 echo "$APP_PATH"

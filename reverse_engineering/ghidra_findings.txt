@@ -1,0 +1,253 @@
+program=G6HE_v1.0.0+84_202609101503.signed.bin
+language=ARM:LE:32:Cortex
+functions=1978
+
+string=TX power to enumerator conversion failed, defaulting to 0 dBm
+address=20050600
+owner=NONE
+
+string=mouse_ble/rpa
+address=20051797
+xref=2001621a
+xref=2001a33c
+xref=200543f8
+owner=FUN_200161f8@200161f8
+decompile_begin
+
+int FUN_200161f8(void)
+
+{
+  int *piVar1;
+  int iVar2;
+  int iVar3;
+  int iVar4;
+  
+  iVar2 = FUN_2002031c();
+  piVar1 = DAT_20016230;
+  if (iVar2 == 0) {
+    *DAT_20016230 = 0;
+    FUN_20020138(DAT_20016238,DAT_20016234,0);
+    iVar4 = DAT_2001623c;
+    for (iVar3 = 0; iVar3 < *piVar1; iVar3 = iVar3 + 1) {
+      FUN_200423a4(iVar4);
+      iVar4 = iVar4 + 0x28;
+    }
+    FUN_200423a4(DAT_20016240);
+  }
+  return iVar2;
+}
+
+
+decompile_end
+
+string=ppt_ptx/bond
+address=20051a6f
+owner=NONE
+
+string=hall/mem0
+address=20051b32
+xref=2001ba54
+xref=2001ae7e
+xref=2004f580
+owner=FUN_2001ba14@2001ba14
+decompile_begin
+
+void FUN_2001ba14(void)
+
+{
+  int iVar1;
+  undefined2 *puVar2;
+  undefined1 *puVar3;
+  undefined1 *puVar4;
+  undefined2 *puVar5;
+  undefined4 uVar6;
+  
+  iVar1 = DAT_2001baa4;
+  *(undefined2 *)(DAT_2001baa4 + 0xe) = 0x514;
+  *(undefined2 *)(iVar1 + 0x10) = 0x1e;
+  *(undefined2 *)(iVar1 + 0x12) = 0x19;
+  puVar5 = DAT_2001bab4;
+  puVar4 = DAT_2001bab0;
+  puVar3 = DAT_2001baac;
+  puVar2 = DAT_2001baa8;
+  *(undefined2 *)(iVar1 + 8) = 0;
+  *(undefined2 *)(iVar1 + 0x14) = 2;
+  *(undefined2 *)(iVar1 + 0x16) = 0;
+  *(undefined2 *)(iVar1 + 0x18) = 0;
+  FUN_2001ada4(0);
+  FUN_2001b944(0);
+  uVar6 = DAT_2001bab8;
+  *puVar2 = 0xffff;
+  *puVar3 = 0;
+  *puVar4 = 0;
+  *puVar5 = 0;
+  FUN_200423a4(uVar6);
+  *(undefined2 *)(iVar1 + 0x28) = 0x514;
+  *(undefined2 *)(iVar1 + 0x2a) = 0x1e;
+  *(undefined2 *)(iVar1 + 0x2c) = 0x19;
+  *(undefined2 *)(iVar1 + 0x22) = 0;
+  *(undefined2 *)(iVar1 + 0x2e) = 2;
+  *(undefined2 *)(iVar1 + 0x30) = 0;
+  *(undefined2 *)(iVar1 + 0x32) = 0;
+  FUN_2001ada4(1);
+  FUN_2001b944(1);
+  uVar6 = DAT_2001babc;
+  puVar2[1] = 0xffff;
+  puVar3[1] = 0;
+  puVar4[1] = 0;
+  puVar5[1] = 0;
+  FUN_200423a4(uVar6);
+  FUN_20040072();
+  return;
+}
+
+
+decompile_end
+owner=FUN_2001ae64@2001ae64
+decompile_begin
+
+void FUN_2001ae64(void)
+
+{
+  undefined2 *puVar1;
+  undefined1 *puVar2;
+  undefined1 *puVar3;
+  undefined2 *puVar4;
+  undefined4 *puVar5;
+  undefined4 uVar6;
+  
+  uVar6 = DAT_2001aec8;
+  puVar5 = DAT_2001aec4;
+  puVar4 = DAT_2001aec0;
+  puVar3 = DAT_2001aebc;
+  puVar2 = DAT_2001aeb8;
+  puVar1 = DAT_2001aeb4;
+  *DAT_2001aeb0 = 0;
+  *puVar1 = 0xffff;
+  *puVar2 = 0;
+  *puVar3 = 0;
+  *puVar4 = 0;
+  *puVar5 = 0;
+  FUN_200423a4(uVar6);
+  uVar6 = DAT_2001aecc;
+  puVar1[1] = 0xffff;
+  puVar2[1] = 0;
+  puVar3[1] = 0;
+  puVar4[1] = 0;
+  puVar5[1] = 0;
+  FUN_200423a4(uVar6);
+  *DAT_2001aed0 = 0;
+  return;
+}
+
+
+decompile_end
+
+string=hall/mem1
+address=20051b3c
+xref=2001ba8a
+xref=2001ae94
+xref=2004f584
+owner=FUN_2001ba14@2001ba14
+decompile_begin
+
+void FUN_2001ba14(void)
+
+{
+  int iVar1;
+  undefined2 *puVar2;
+  undefined1 *puVar3;
+  undefined1 *puVar4;
+  undefined2 *puVar5;
+  undefined4 uVar6;
+  
+  iVar1 = DAT_2001baa4;
+  *(undefined2 *)(DAT_2001baa4 + 0xe) = 0x514;
+  *(undefined2 *)(iVar1 + 0x10) = 0x1e;
+  *(undefined2 *)(iVar1 + 0x12) = 0x19;
+  puVar5 = DAT_2001bab4;
+  puVar4 = DAT_2001bab0;
+  puVar3 = DAT_2001baac;
+  puVar2 = DAT_2001baa8;
+  *(undefined2 *)(iVar1 + 8) = 0;
+  *(undefined2 *)(iVar1 + 0x14) = 2;
+  *(undefined2 *)(iVar1 + 0x16) = 0;
+  *(undefined2 *)(iVar1 + 0x18) = 0;
+  FUN_2001ada4(0);
+  FUN_2001b944(0);
+  uVar6 = DAT_2001bab8;
+  *puVar2 = 0xffff;
+  *puVar3 = 0;
+  *puVar4 = 0;
+  *puVar5 = 0;
+  FUN_200423a4(uVar6);
+  *(undefined2 *)(iVar1 + 0x28) = 0x514;
+  *(undefined2 *)(iVar1 + 0x2a) = 0x1e;
+  *(undefined2 *)(iVar1 + 0x2c) = 0x19;
+  *(undefined2 *)(iVar1 + 0x22) = 0;
+  *(undefined2 *)(iVar1 + 0x2e) = 2;
+  *(undefined2 *)(iVar1 + 0x30) = 0;
+  *(undefined2 *)(iVar1 + 0x32) = 0;
+  FUN_2001ada4(1);
+  FUN_2001b944(1);
+  uVar6 = DAT_2001babc;
+  puVar2[1] = 0xffff;
+  puVar3[1] = 0;
+  puVar4[1] = 0;
+  puVar5[1] = 0;
+  FUN_200423a4(uVar6);
+  FUN_20040072();
+  return;
+}
+
+
+decompile_end
+owner=FUN_2001ae64@2001ae64
+decompile_begin
+
+void FUN_2001ae64(void)
+
+{
+  undefined2 *puVar1;
+  undefined1 *puVar2;
+  undefined1 *puVar3;
+  undefined2 *puVar4;
+  undefined4 *puVar5;
+  undefined4 uVar6;
+  
+  uVar6 = DAT_2001aec8;
+  puVar5 = DAT_2001aec4;
+  puVar4 = DAT_2001aec0;
+  puVar3 = DAT_2001aebc;
+  puVar2 = DAT_2001aeb8;
+  puVar1 = DAT_2001aeb4;
+  *DAT_2001aeb0 = 0;
+  *puVar1 = 0xffff;
+  *puVar2 = 0;
+  *puVar3 = 0;
+  *puVar4 = 0;
+  *puVar5 = 0;
+  FUN_200423a4(uVar6);
+  uVar6 = DAT_2001aecc;
+  puVar1[1] = 0xffff;
+  puVar2[1] = 0;
+  puVar3[1] = 0;
+  puVar4[1] = 0;
+  puVar5[1] = 0;
+  FUN_200423a4(uVar6);
+  *DAT_2001aed0 = 0;
+  return;
+}
+
+
+decompile_end
+
+string=hall/ax0
+address=20051b4b
+xref=2004f578
+owner=NONE
+
+string=hall/ax1
+address=20051b54
+xref=2004f57c
+owner=NONE

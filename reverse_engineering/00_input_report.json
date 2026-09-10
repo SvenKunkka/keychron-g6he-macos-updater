@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "input": {
+    "filename": "G6HE_v1.0.0+84_202609101503.signed.bin",
+    "size": 350953,
+    "sha256": "38f5bbb0ff3eec06600c766094a01c5da987c75d17192b35acc89dd0aed0695a"
+  },
+  "mcu": {
+    "user_supplied_part": "nRF54LM20A (artifact-inferred; not user-confirmed)",
+    "verification_status": "not_verified"
+  },
+  "statistics": {
+    "shannon_entropy_bits_per_byte": 7.057965,
+    "zero_byte_ratio": 0.080583,
+    "ff_byte_ratio": 0.015315,
+    "trailing_zero_bytes": 0,
+    "trailing_ff_bytes": 0
+  },
+  "vector_hints": {
+    "arm_cortex_m_at_offset_zero": {
+      "available": true,
+      "initial_sp_hex": "0x96f3b83d",
+      "reset_vector_hex": "0x20000800",
+      "reset_target_hex": "0x20000800",
+      "stack_pointer_looks_sram_like": false,
+      "reset_vector_has_thumb_bit": false,
+      "reset_target_in_image_if_base_zero": false,
+      "classification": "candidate_only"
+    }
+  },
+  "limitations": [
+    "Vector-table output is a heuristic candidate, not proof of architecture or load address.",
+    "Entropy alone cannot prove compression or encryption.",
+    "This report does not disassemble code or identify embedded filesystems."
+  ]
+}
