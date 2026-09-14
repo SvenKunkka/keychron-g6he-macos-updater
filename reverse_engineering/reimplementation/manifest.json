@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "snapshot_date": "2026-09-14",
+  "project": "G6 HE clean-room behavioural reimplementation",
+  "authorization": "Owner-authorized interoperability, archival and product-development research",
+  "scope": {
+    "included": [
+      "portable C11 behavioural model",
+      "host-side tests",
+      "fail-closed target architecture",
+      "Zephyr/NCS project scaffold",
+      "evidence-labelled documentation"
+    ],
+    "excluded": [
+      "vendor firmware added by this snapshot",
+      "PCB production packages and datasheets",
+      "decompiler output and vendor source",
+      "signing keys or signing workflow",
+      "flash commands or a flashable image"
+    ]
+  },
+  "mcu": {
+    "part": "nRF54LM20A",
+    "profile_status": "partial",
+    "missing": "board pin map or devicetree"
+  },
+  "validation": {
+    "host_build": "PASS",
+    "checks": 489,
+    "failures": 0,
+    "ubsan": "PASS",
+    "clang_static_analyzer": "PASS",
+    "asan": "BLOCKED_BY_HOST_RUNTIME",
+    "hardware_runtime": "NOT_TESTED",
+    "device_commands_sent": 0
+  },
+  "status": {
+    "verified": [
+      "clean host build and 489 checks",
+      "MCUboot container and updater protocol behavioural model",
+      "fail-closed board and electrical configuration gates"
+    ],
+    "partial": [
+      "sensor, power, optomagnetic input, HID and wireless abstractions",
+      "static compatibility with two authorized G6 HE release artifacts"
+    ],
+    "blocked": [
+      "no schematic, netlist or vendor devicetree",
+      "no verified charger configuration",
+      "no local NCS target toolchain",
+      "no official signing pipeline",
+      "no G9-specific board or DPI-button evidence"
+    ],
+    "next": "Obtain the G6 HE board pin map and the battery datasheet with vendor nPM1300 configuration before enabling target hardware."
+  },
+  "safety": {
+    "flashable_image_produced": false,
+    "device_flashed": false,
+    "access_controls_bypassed": false,
+    "hardware_enable_default": false
+  }
+}

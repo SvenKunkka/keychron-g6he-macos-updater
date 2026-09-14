@@ -6,3 +6,7 @@ dist/
 __pycache__/
 *.pyc
 *.spec
+reverse_engineering/reimplementation/DSH_RESULT.md
+reverse_engineering/reimplementation/reverse_engineering/
+reverse_engineering/reimplementation/docs/verification/*.log
+reverse_engineering/reimplementation/tests/*.log

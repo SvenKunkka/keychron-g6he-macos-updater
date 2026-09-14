@@ -53,5 +53,14 @@
       "Power-loss recovery",
       "Separate bootloader identity for other device revisions"
     ]
+  },
+  "reimplementation": {
+    "path": "reimplementation/",
+    "status": "host-verified behavioural model of the documented subset",
+    "manifest": "reimplementation/manifest.json",
+    "snapshot": "reimplementation/PUBLIC_SNAPSHOT_2026-09-14.md",
+    "test_result": "489 checks, 0 failures on the archived local validation run",
+    "flashable_image_produced": false,
+    "device_commands_sent": 0
   }
 }

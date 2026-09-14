@@ -78,6 +78,16 @@ python3 keychron_mouse_updater.py upgrade firmware.signed.bin --device DEVICE_ID
   最终仍由设备 Bootloader 验证。
 - MIT 许可证只覆盖本仓库的应用代码；固件保留其原权利归属。
 
+## G6 HE 行为等价源码研究
+
+仓库同时归档了独立的
+[`reverse_engineering/reimplementation`](reverse_engineering/reimplementation/README.md)
+研究子项目。它包含可移植 C11 行为模型、489 项主机测试及一个默认拒绝启用未知硬件
+参数的 Zephyr/NCS 工程骨架。
+
+该子项目不是完整固件、不能刷写鼠标，也不提供签名或绕过安全启动的方法。PCB
+生产包、厂商固件新包、规格书、反编译输出和私有工程记录不在该公开源码归档中。
+
 ## License
 
 Application source code: [MIT](LICENSE). Third-party components:

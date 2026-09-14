@@ -89,6 +89,19 @@ An intentional downgrade also requires `--allow-downgrade`.
 - The MIT license applies only to the application source code. Firmware remains subject
   to its original rights and licensing terms.
 
+## G6 HE clean-room behavioural research
+
+The repository also archives an independent
+[`reverse_engineering/reimplementation`](reverse_engineering/reimplementation/README.md)
+research project. It contains a portable C11 behavioural model, 489 host-side checks,
+and a fail-closed Zephyr/NCS scaffold that refuses to enable hardware while pin and
+electrical evidence is missing.
+
+This subproject is not complete or flashable firmware and contains no signing or secure
+boot bypass workflow. PCB production packages, newer vendor firmware, datasheets,
+decompiler output, and private engineering records are excluded from the public source
+snapshot.
+
 ## License
 
 Application source code: [MIT](LICENSE). Third-party components:
