@@ -1,5 +1,7 @@
 # Keychron Mouse Firmware Updater for macOS
 
+[简体中文](README.md) | [English](README.en.md)
+
 适用于 Apple Silicon Mac 的 Keychron 鼠标图形化固件升级工具。使用流程是：
 
 1. USB 直连并选择 Keychron 鼠标；
