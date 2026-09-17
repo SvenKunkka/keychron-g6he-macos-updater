@@ -3,7 +3,7 @@
 set -euo pipefail
 
 PROJECT_DIR="${0:A:h:h}"
-VERSION="${VERSION:-1.2.0}"
+VERSION="${VERSION:-1.3.0}"
 APP_NAME="Keychron Mouse Firmware Updater"
 BUILD_DIR="$PROJECT_DIR/build-release"
 DIST_DIR="$PROJECT_DIR/dist"

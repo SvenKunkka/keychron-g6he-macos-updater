@@ -30,12 +30,12 @@ conditions are met:
 - The device reports protocol version 1, DFU version 0, and standard update support.
 - The firmware contains an exact match for the selected device model.
 - Known device profiles pass RAM address and vector-range validation.
-- Firmware downgrades receive a separate warning and confirmation.
+- A target version that does not sort above the running version requires a separate confirmation.
 
 | Device | USB PID | Validation status |
 |---|---:|---|
 | Keychron G6 HE 8K / `54LMG6HE` | `0xd086` | Hardware-verified update from `1.0.0+82` to `1.0.0+84` |
-| Keychron G6 HE 8K / `54LMG6HE` | `0xd09d` | Protocol-compatible; this unit (`hardware_revision 0503`, factory `1.0.0+0`) has not completed an acceptance run |
+| Keychron G6 HE 8K / `54LMG6HE` | `0xd09d` | Protocol-compatible; this unit (`hardware_revision 0503`) has completed a write and readback of the internal build `1.0.0+1` |
 | Other Keychron mice reporting the same protocol | Detected dynamically | Protocol-compatible; an exact device/firmware pair still requires hardware acceptance testing |
 
 Detecting a device and recognizing its protocol does not mean that its complete firmware
@@ -59,7 +59,7 @@ Pass `--strict-product-id` to restore blocking behaviour for an unrecorded produ
 
 ## Installation and use
 
-1. Download and open `Keychron-Mouse-Firmware-Updater-v1.2.0-macOS-arm64.dmg`.
+1. Download and open `Keychron-Mouse-Firmware-Updater-v1.3.0-macOS-arm64.dmg`.
 2. Drag **Keychron Mouse Firmware Updater** into the Applications folder.
 3. If macOS blocks the first launch, right-click the app and choose **Open**.
 4. Switch the mouse to wired mode and connect it directly to the Mac over USB.
@@ -92,9 +92,29 @@ python3 keychron_mouse_updater.py upgrade firmware.signed.bin --device DEVICE_ID
 python3 keychron_mouse_updater.py upgrade firmware.signed.bin --device DEVICE_ID --confirm DEVICE_MODEL
 ```
 
-An intentional downgrade also requires `--allow-downgrade`. Add `--strict-product-id` to
-`devices`, `probe`, or `upgrade` to treat an unrecorded USB product ID as an
-incompatibility instead of a warning.
+A target that does not sort above the running version also requires
+`--allow-version-change`. Add `--strict-product-id` to `devices`, `probe`, or `upgrade`
+to treat an unrecorded USB product ID as an incompatibility instead of a warning.
+
+### Version ordering and release lines
+
+The updater only sorts version strings numerically and reports the result as a fact:
+`newer`, `older`, `same`, or `unknown`. It deliberately does not translate that into
+"upgrade" or "downgrade", because what a version number means is a vendor release
+convention that a generic tool cannot know.
+
+Vendors may maintain parallel release lines with independent build counters (for example
+an internal test line and a public release line). As a result a numerically lower target
+is not necessarily an older or worse image, and a numerically higher one is not
+necessarily an upgrade. Whenever the target does not sort higher, the tool asks for
+explicit confirmation instead of drawing the conclusion for the user.
+
+Equal version numbers also do not prove identical content. The updater compares the image
+SHA-256 as well: it reports `already_current` and skips the write only when the image hash
+recorded as running for that model and version matches the selected file. Otherwise it
+flags the write as a same-version reflash and asks for confirmation. The device protocol
+cannot read back the running image digest, so this depends on images this project has
+actually observed and recorded.
 
 ## Firmware and signature trust boundary
 

@@ -16,7 +16,7 @@ from g6he_mac_tool import (
     _device_compatibility,
     _query_after_restart,
     _read_response,
-    _version_relation,
+    _version_order,
     build_frame,
     inspect_firmware,
     updater_crc32,
@@ -150,10 +150,22 @@ class UpdaterProtocolTests(unittest.TestCase):
     def test_crc_matches_updater_variant(self) -> None:
         self.assertEqual(updater_crc32(b"123456789"), 0x340BC6D9)
 
-    def test_version_relation_accepts_optional_v_prefix(self) -> None:
-        self.assertEqual(_version_relation("v1.2.3+7", "1.2.3+8"), "upgrade")
-        self.assertEqual(_version_relation("1.2.3+7", "v1.2.3+6"), "downgrade")
-        self.assertEqual(_version_relation("v1.2.3+7", "1.2.3+7"), "same")
+    def test_version_order_reports_ordering_not_intent(self) -> None:
+        self.assertEqual(_version_order("v1.2.3+7", "1.2.3+8"), "newer")
+        self.assertEqual(_version_order("1.2.3+7", "v1.2.3+6"), "older")
+        self.assertEqual(_version_order("v1.2.3+7", "1.2.3+7"), "same")
+        # Unparseable versions must not be silently ordered.
+        self.assertEqual(_version_order("1.0.0+1", "garbage"), "unknown")
+        self.assertEqual(_version_order("", "1.0.0+1"), "unknown")
+
+    def test_parallel_release_lines_are_ordered_numerically_only(self) -> None:
+        """Regression: a factory/内测 build counter and a release build counter are
+        independent. The tool must report the numeric ordering and leave the meaning
+        to the user, instead of calling a cross-line write an upgrade or downgrade."""
+        # nc line at +1 writing the release line's +84 sorts higher numerically.
+        self.assertEqual(_version_order("1.0.0+1", "1.0.0+84"), "newer")
+        # Writing the nc line's +1 over a release +87 sorts lower numerically.
+        self.assertEqual(_version_order("1.0.0+87", "1.0.0+1"), "older")
 
     def test_unknown_keychron_model_is_protocol_compatible(self) -> None:
         result = _device_compatibility(
@@ -247,6 +259,148 @@ class DeviceCompatibilityTests(unittest.TestCase):
                 ):
             with self.assertRaisesRegex(Exception, "ambiguous"):
                 _query_after_restart(G6_MODEL, None)
+
+
+class VersionChangeClassificationTests(unittest.TestCase):
+    """upgrade_firmware must not skip a same-version write when content differs.
+
+    Regression for: a target whose version string equalled the running version was
+    returned as already_current and silently not written, even when the selected
+    image was a different build under the same version string.
+    """
+
+    def build_g6_image(self, build_number: int, marker: bytes = b"") -> bytes:
+        """Minimal image that satisfies model + RAM-layout validation for 54LMG6HE."""
+        # Model string is NUL-terminated and NUL-prefixed, as in the real image, so
+        # the extractor sees it as its own string rather than glued to the vectors.
+        payload = (
+            # initial_sp inside the app RAM window; reset vector inside the image
+            # (ram_start <= reset_vector < image_end, Thumb bit set).
+            struct.pack("<II", 0x20040000, 0x20000031)
+            + b"\x00" + G6_MODEL.encode() + b"\x00" + marker
+        )
+        header = struct.pack(
+            "<IIHHIIBBHII",
+            0x96F3B83D, 0x20000000, 32, 0, len(payload), 0x20, 1, 0, 0, build_number, 0,
+        )
+        digest = hashlib.sha512(header + payload).digest()
+        tlvs = (
+            struct.pack("<BBH", 0x12, 0, len(digest)) + digest
+            + struct.pack("<BBH", 0x01, 0, 64) + bytes(range(64))
+            + struct.pack("<BBH", 0x24, 0, 64) + bytes(reversed(range(64)))
+        )
+        return header + payload + struct.pack("<HH", 0x6907, 4 + len(tlvs)) + tlvs
+
+    class _FakeHidDevice:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    class _FakeHidModule:
+        HIDException = OSError
+
+        def __init__(self, device_cls):
+            self._device_cls = device_cls
+
+        def Device(self, path=None):
+            return self._device_cls()
+
+    def run_upgrade(self, image: bytes, running_version: str, *, dry_run: bool,
+                    allow_version_change: bool = False):
+        from g6he_mac_tool import upgrade_firmware
+
+        handle = tempfile.NamedTemporaryFile(suffix=".signed.bin", delete=False)
+        handle.write(image)
+        handle.close()
+        self.addCleanup(Path(handle.name).unlink, missing_ok=True)
+
+        device_info = {
+            "model": G6_MODEL,
+            "protocol_version": 1,
+            "dfu_version": 0,
+            "supported_update_modes": 1,
+            "bootloader_required": False,
+            "firmware_version": running_version,
+            "product_id": "0xd09d",
+        }
+        fake_hid = self._FakeHidModule(self._FakeHidDevice)
+        with mock.patch("g6he_mac_tool._import_hid", return_value=fake_hid), \
+                mock.patch(
+                    "g6he_mac_tool._find_upgrade_interface",
+                    return_value={"path": b"fake", "product_id": 0xD09D},
+                ), \
+                mock.patch(
+                    "g6he_mac_tool._query_open_device",
+                    return_value=(device_info, 1),
+                ):
+            return upgrade_firmware(
+                Path(handle.name),
+                device_id=None,
+                dry_run=dry_run,
+                confirmation=G6_MODEL if not dry_run else None,
+                allow_version_change=allow_version_change,
+            )
+
+    def test_same_version_different_content_is_not_skipped(self) -> None:
+        """Device on 1.0.0+1, target 1.0.0+1, but a different build."""
+        result = self.run_upgrade(
+            self.build_g6_image(1, b"different-build"), "1.0.0+1", dry_run=True
+        )
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(result["version_order"], "same")
+        self.assertTrue(result["requires_version_change_confirmation"])
+        self.assertIn("version_order_note", result)
+        self.assertEqual(result["write_attempted"], False)
+
+    def test_recorded_running_hash_is_recognised(self) -> None:
+        """The recorded +1 image hash must be usable to prove identical content."""
+        from g6he_mac_tool import _RUNNING_IMAGE_HASHES
+
+        self.assertEqual(
+            _RUNNING_IMAGE_HASHES[G6_MODEL]["1.0.0+1"],
+            "9adb197d778e09b6e12a1cd7baadee4d437afcd56c35f36d23fc82d8d152533b",
+        )
+
+    def test_newer_target_needs_no_version_change_confirmation(self) -> None:
+        result = self.run_upgrade(
+            self.build_g6_image(84, b"release"), "1.0.0+1", dry_run=True
+        )
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(result["version_order"], "newer")
+        self.assertFalse(result["requires_version_change_confirmation"])
+
+    def test_nc_line_older_target_flagged_for_confirmation(self) -> None:
+        """Writing the nc line's +1 over a release +87 sorts lower numerically."""
+        result = self.run_upgrade(
+            self.build_g6_image(1, b"nc"), "1.0.0+87", dry_run=True
+        )
+        self.assertEqual(result["version_order"], "older")
+        self.assertTrue(result["requires_version_change_confirmation"])
+
+    def test_older_target_refused_without_allow_version_change(self) -> None:
+        from g6he_mac_tool import ProtocolError
+
+        with self.assertRaisesRegex(ProtocolError, "allow-version-change"):
+            self.run_upgrade(
+                self.build_g6_image(1, b"nc"), "1.0.0+87", dry_run=False
+            )
+
+    def test_older_target_allowed_with_allow_version_change_then_writes(self) -> None:
+        """With consent, an older-sorting target proceeds to the write path."""
+        # The fake device rejects the protocol exchange, so the write is expected to
+        # fail at the transport layer rather than at the version gate.
+        from g6he_mac_tool import ProtocolError
+
+        with self.assertRaises(ProtocolError) as ctx:
+            self.run_upgrade(
+                self.build_g6_image(1, b"nc"),
+                "1.0.0+87",
+                dry_run=False,
+                allow_version_change=True,
+            )
+        self.assertNotIn("allow-version-change", str(ctx.exception))
 
 
 if __name__ == "__main__":

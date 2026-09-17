@@ -51,11 +51,12 @@ typedef void (^ToolCompletion)(int, NSString *, NSString *);
     self.window.releasedWhenClosed = NO;
     [self.window center];
 
-    NSTextField *title = [self label:@"Keychron 鼠标固件升级工具" size:24
+    NSTextField *title = [self label:@"Keychron 鼠标固件写入工具" size:24
                               weight:NSFontWeightSemibold];
     NSTextField *subtitle = [NSTextField wrappingLabelWithString:
-        @"先选择有线连接的 Keychron 鼠标，再选择与设备型号一致的签名固件。"
-         "升级期间应用会阻止系统休眠，请勿拔线。"];
+        @"先选择有线连接的 Keychron 鼠标，再选择任意与设备型号一致的签名固件。"
+         "工具按版本号大小关系如实报告先后顺序，不假定它属于哪条发布线；"
+         "写入期间应用会阻止系统休眠，请勿拔线。"];
     subtitle.textColor = NSColor.secondaryLabelColor;
 
     NSTextField *step1 = [self label:@"1. 选择鼠标" size:15 weight:NSFontWeightSemibold];
@@ -84,7 +85,7 @@ typedef void (^ToolCompletion)(int, NSString *, NSString *);
     firmwareRow.orientation = NSUserInterfaceLayoutOrientationHorizontal;
     firmwareRow.spacing = 12;
 
-    NSTextField *step3 = [self label:@"3. 校验并升级" size:15 weight:NSFontWeightSemibold];
+    NSTextField *step3 = [self label:@"3. 校验并写入" size:15 weight:NSFontWeightSemibold];
     self.statusLabel = [NSTextField wrappingLabelWithString:
         @"鼠标必须切换到有线模式并使用 USB 线直连 Mac。"];
     self.statusLabel.textColor = NSColor.secondaryLabelColor;
@@ -92,7 +93,7 @@ typedef void (^ToolCompletion)(int, NSString *, NSString *);
     self.progress.indeterminate = NO;
     self.progress.minValue = 0;
     self.progress.maxValue = 100;
-    self.upgradeButton = [NSButton buttonWithTitle:@"校验并开始升级" target:self
+    self.upgradeButton = [NSButton buttonWithTitle:@"校验并开始写入" target:self
                                              action:@selector(beginUpgrade:)];
     self.upgradeButton.keyEquivalent = @"\r";
 
@@ -214,7 +215,7 @@ typedef void (^ToolCompletion)(int, NSString *, NSString *);
      completion:(ToolCompletion)completion {
     NSString *path = [[NSBundle mainBundle] pathForAuxiliaryExecutable:@"keychron-mouse-updater-cli"];
     if (!path) {
-        [self showError:@"升级引擎缺失" details:@"请重新安装应用。"];
+        [self showError:@"写入引擎缺失" details:@"请重新安装应用。"];
         return;
     }
     [self setBusy:YES message:busyMessage];
@@ -230,8 +231,8 @@ typedef void (^ToolCompletion)(int, NSString *, NSString *);
         NSError *launchError = nil;
         if (![task launchAndReturnError:&launchError]) {
             dispatch_async(dispatch_get_main_queue(), ^{
-                [self setBusy:NO message:@"无法启动升级引擎"];
-                [self showError:@"无法启动升级引擎" details:launchError.localizedDescription];
+                [self setBusy:NO message:@"无法启动写入引擎"];
+                [self showError:@"无法启动写入引擎" details:launchError.localizedDescription];
                 completion(-1, @"", launchError.localizedDescription);
             });
             return;
@@ -294,7 +295,7 @@ typedef void (^ToolCompletion)(int, NSString *, NSString *);
         device[@"firmware_version"] ?: @"未知", [self compatibilityLabelForDevice:device]];
     NSArray<NSString *> *warnings = [self warningsForDevice:device];
     if (![device[@"compatible"] boolValue]) {
-        self.statusLabel.stringValue = [NSString stringWithFormat:@"设备不可升级：%@",
+        self.statusLabel.stringValue = [NSString stringWithFormat:@"设备不可写入：%@",
             [device[@"compatibility_reasons"] componentsJoinedByString:@"；"] ?: @"未知原因"];
     } else if (warnings.count) {
         self.statusLabel.stringValue = [NSString stringWithFormat:
@@ -348,7 +349,7 @@ typedef void (^ToolCompletion)(int, NSString *, NSString *);
                 return;
             }
             [self refreshFirmwareLabel:result];
-            self.statusLabel.stringValue = @"固件结构检查通过；开始升级前还会校验设备型号。";
+            self.statusLabel.stringValue = @"固件结构检查通过；开始写入前还会校验设备型号与版本关系。";
         }];
 }
 
@@ -371,28 +372,43 @@ typedef void (^ToolCompletion)(int, NSString *, NSString *);
             NSString *target = result[@"target_version"] ?: @"未知";
             if ([result[@"status"] isEqual:@"already_current"]) {
                 self.progress.doubleValue = 100;
-                self.statusLabel.stringValue = [NSString stringWithFormat:@"设备已经是目标版本 %@。", target];
+                self.statusLabel.stringValue = [NSString stringWithFormat:@"设备已在运行所选固件（版本 %@），无需写入。", target];
                 return;
             }
             NSDictionary *device = result[@"device"];
             NSString *model = device[@"model"] ?: @"";
-            BOOL downgrade = [result[@"requires_downgrade_confirmation"] boolValue];
+            NSString *current = device[@"firmware_version"] ?: @"未知";
+            NSString *order = result[@"version_order"] ?: @"unknown";
+            BOOL reorder = [result[@"requires_version_change_confirmation"] boolValue];
             BOOL unverifiedModel = [device[@"compatibility_status"] isEqual:@"protocol_compatible_unverified_model"];
             BOOL unverifiedProductID = [device[@"compatibility_status"] isEqual:@"protocol_compatible_unverified_product_id"];
             BOOL bootloaderOnly = [result[@"firmware_trust_status"] isEqual:@"bootloader_signature_only"];
             NSMutableArray<NSString *> *warnings = [NSMutableArray arrayWithObject:
-                @"升级期间请保持 USB 连接。应用会阻止 Mac 自动休眠。"];
-            if (unverifiedModel) [warnings addObject:@"该型号协议兼容，但尚未完成本项目实机升级验收。"];
-            if (unverifiedProductID) [warnings addObject:@"该型号协议兼容，但此 USB PID 尚未完成本项目实机升级验收。"];
+                @"写入期间请保持 USB 连接。应用会阻止 Mac 自动休眠。"];
+            if (unverifiedModel) [warnings addObject:@"该型号协议兼容，但尚未完成本项目实机写入验收。"];
+            if (unverifiedProductID) [warnings addObject:@"该型号协议兼容，但此 USB PID 尚未完成本项目实机写入验收。"];
             if (bootloaderOnly) [warnings addObject:@"此固件不在可信哈希表中，签名真实性由设备 Bootloader 最终判断。"];
-            if (downgrade) [warnings addObject:@"目标版本低于当前版本，这是降级操作。"];
+            // Describe the version relationship as the fact it is. A target that does
+            // not sort higher can be an intentional reflash or a parallel release
+            // line, so it is not labelled as a mistake or as a downgrade.
+            if ([order isEqual:@"older"]) {
+                [warnings addObject:[NSString stringWithFormat:
+                    @"目标版本构建号较小（%@ → %@）。这可能是较早的构建，也可能是另一条发布线，请确认这是你要写入的镜像。", current, target]];
+            } else if ([order isEqual:@"same"]) {
+                NSString *note = result[@"version_order_note"];
+                [warnings addObject:note.length ? note : [NSString stringWithFormat:
+                    @"设备已报告相同版本号（%@），但所选镜像可能并不相同，将重新写入。", target]];
+            } else if ([order isEqual:@"unknown"]) {
+                [warnings addObject:@"无法解析版本号格式，不能判断版本先后关系。"];
+            }
             [warnings addObjectsFromArray:[self warningsForDevice:device]];
 
             NSAlert *alert = [[NSAlert alloc] init];
-            alert.alertStyle = downgrade ? NSAlertStyleCritical : NSAlertStyleWarning;
-            alert.messageText = [NSString stringWithFormat:@"确认将 %@ 升级到 %@？", model, target];
+            alert.alertStyle = reorder ? NSAlertStyleCritical : NSAlertStyleWarning;
+            alert.messageText = [NSString stringWithFormat:@"确认将 %@ 写入 %@（%@ → %@）？",
+                model, target, current, target];
             alert.informativeText = [warnings componentsJoinedByString:@"\n"];
-            [alert addButtonWithTitle:downgrade ? @"确认降级" : @"开始升级"];
+            [alert addButtonWithTitle:reorder ? @"仍然写入" : @"开始写入"];
             [alert addButtonWithTitle:@"取消"];
             if ([alert runModal] != NSAlertFirstButtonReturn) {
                 self.statusLabel.stringValue = @"已取消，没有写入固件。";
@@ -401,21 +417,21 @@ typedef void (^ToolCompletion)(int, NSString *, NSString *);
 
             NSMutableArray<NSString *> *args = [NSMutableArray arrayWithArray:
                 @[@"upgrade", self.firmwareURL.path, @"--device", deviceID, @"--confirm", model]];
-            if (downgrade) [args addObject:@"--allow-downgrade"];
-            [self runTool:args busy:@"正在升级，请勿拔线…" completion:
+            if (reorder) [args addObject:@"--allow-version-change"];
+            [self runTool:args busy:@"正在写入，请勿拔线…" completion:
                 ^(int finalStatus, NSString *finalOutput, NSString *finalError) {
                     NSDictionary *finalResult = finalStatus == 0 ? [self parseResult:finalOutput] : nil;
                     if (!finalResult) {
-                        [self showError:@"升级未完成" details:finalError];
+                        [self showError:@"写入未完成" details:finalError];
                         return;
                     }
                     if ([finalResult[@"verified_after_restart"] boolValue]) {
                         self.progress.doubleValue = 100;
                         self.statusLabel.stringValue = [NSString stringWithFormat:
-                            @"升级成功，重启后已验证版本 %@。", finalResult[@"target_version"] ?: target];
+                            @"写入成功，重启后已回读版本 %@。", finalResult[@"target_version"] ?: target];
                         [self refreshDevices:nil];
                     } else {
-                        [self showError:@"版本验证未通过" details:@"请查看日志并重新连接设备。"];
+                        [self showError:@"版本回读未通过" details:@"请查看日志并重新连接设备。"];
                     }
                 }];
         }];

@@ -92,6 +92,18 @@ TRUSTED_RELEASE_HASHES = {
         "38f5bbb0ff3eec06600c766094a01c5da987c75d17192b35acc89dd0aed0695a"
     }
 }
+# Image hash observed running on a device, keyed by model and the version string that
+# device reported. Used only to tell "already running this exact image" apart from
+# "reports the same version string but is actually a different build". The updater
+# generally cannot read back the running image digest over the protocol, so this is
+# a record of what this project has actually observed, not a general map.
+_RUNNING_IMAGE_HASHES: dict[str, dict[str, str]] = {
+    "54LMG6HE": {
+        # Flashed from G6HE_nc_v1.0.0+1_202609161520.signed.bin on hardware_revision
+        # 0503; the device reported 1.0.0+1 afterwards.
+        "1.0.0+1": "9adb197d778e09b6e12a1cd7baadee4d437afcd56c35f36d23fc82d8d152533b",
+    }
+}
 
 
 class FirmwareError(ValueError):
@@ -651,14 +663,27 @@ def _version_key(value: str) -> tuple[int, int, int, int] | None:
     return tuple(int(part) for part in match.groups())  # type: ignore[return-value]
 
 
-def _version_relation(current: str, target: str) -> str:
+def _version_order(current: str, target: str) -> str:
+    """Report the ordering of two version strings, without interpreting it.
+
+    This describes a fact about the numbers only: whether the target version sorts
+    higher, lower or equal. It deliberately does not call that an "upgrade" or a
+    "downgrade", because what a higher version number means is a vendor release
+    convention that a generic updater cannot know. Vendors ship parallel release
+    lines with independent build counters, so a numerically lower target is not
+    necessarily an older or worse image, and a numerically higher one is not
+    necessarily an upgrade.
+
+    Callers should present the ordering as-is and require explicit confirmation
+    whenever the target does not sort higher than what the device is running.
+    """
     current_key = _version_key(current)
     target_key = _version_key(target)
     if current_key is None or target_key is None:
         return "unknown"
     if target_key == current_key:
         return "same"
-    return "upgrade" if target_key > current_key else "downgrade"
+    return "newer" if target_key > current_key else "older"
 
 
 @contextlib.contextmanager
@@ -753,7 +778,7 @@ def upgrade_firmware(
     device_id: str | None,
     dry_run: bool,
     confirmation: str | None,
-    allow_downgrade: bool = False,
+    allow_version_change: bool = False,
     strict_product_id: bool = False,
 ) -> dict[str, Any]:
     firmware_report = inspect_firmware(path)
@@ -778,7 +803,7 @@ def upgrade_firmware(
         for warning in device_info["compatibility_warnings"]:
             print(f"Warning: {warning}", file=sys.stderr, flush=True)
         target_version = firmware_report["header"]["version"]
-        version_relation = _version_relation(
+        version_order = _version_order(
             device_info["firmware_version"], target_version
         )
         trusted_hashes = TRUSTED_RELEASE_HASHES.get(device_info["model"], set())
@@ -787,36 +812,70 @@ def upgrade_firmware(
             if firmware_report["sha256"] in trusted_hashes
             else "bootloader_signature_only"
         )
+        # Equal version numbers do not prove identical content: a vendor can publish
+        # a different build under the same version string. Compare the image hash as
+        # well, so an intentional reflash of a same-version image is not silently
+        # skipped. The device cannot report its running image digest over this
+        # protocol, so this only works for version strings this project has actually
+        # observed being flashed.
+        running_hash = _RUNNING_IMAGE_HASHES.get(device_info["model"], {}).get(
+            device_info["firmware_version"]
+        )
+        same_version_note: str | None = None
+        if version_order == "same":
+            if running_hash is not None and running_hash == firmware_report["sha256"]:
+                return {
+                    "status": "already_current",
+                    "device": device_info,
+                    "target_version": target_version,
+                    "version_order": version_order,
+                    "firmware_sha256": firmware_report["sha256"],
+                    "firmware_crc32": f"0x{file_crc:08x}",
+                    "firmware_trust_status": trust_status,
+                    "host_signature_verified": False,
+                    "compatibility_warnings": device_info["compatibility_warnings"],
+                    "write_attempted": False,
+                    "verified_after_restart": True,
+                }
+            same_version_note = (
+                "the device already reports this version string, but the running "
+                "image hash is not the selected image, so this write is a "
+                "same-version reflash"
+                if running_hash is not None
+                else "the device already reports this version string and the running "
+                "image hash is not recorded for this model, so identical content "
+                "cannot be confirmed and this write may be redundant"
+            )
+
         common_result = {
             "device": device_info,
             "target_version": target_version,
-            "version_relation": version_relation,
+            "version_order": version_order,
             "firmware_sha256": firmware_report["sha256"],
             "firmware_crc32": f"0x{file_crc:08x}",
             "firmware_trust_status": trust_status,
             "host_signature_verified": False,
             "compatibility_warnings": device_info["compatibility_warnings"],
         }
-        if version_relation == "same":
-            return {
-                "status": "already_current",
-                **common_result,
-                "write_attempted": False,
-                "verified_after_restart": True,
-            }
+        if same_version_note is not None:
+            common_result["version_order_note"] = same_version_note
         if dry_run:
             return {
                 "status": "ready",
                 **common_result,
                 "firmware_size": len(data),
                 "chunks": math.ceil(len(data) / CHUNK_SIZE),
-                "requires_downgrade_confirmation": version_relation == "downgrade",
+                "requires_version_change_confirmation": version_order != "newer",
                 "write_attempted": False,
             }
-        if version_relation == "downgrade" and not allow_downgrade:
+        # Any target that does not sort above the running version needs explicit
+        # consent: it may be an intentional reflash, a parallel release line, or a
+        # mistaken selection of an older image.
+        if version_order != "newer" and not allow_version_change:
             raise ProtocolError(
-                f"refusing firmware downgrade {device_info['firmware_version']} -> "
-                f"{target_version}; pass --allow-downgrade only when intentional"
+                f"target version {target_version} does not sort above the running "
+                f"version {device_info['firmware_version']} (version order: "
+                f"{version_order}); pass --allow-version-change to write it anyway"
             )
         if confirmation != device_info["model"]:
             raise ProtocolError(
@@ -824,8 +883,9 @@ def upgrade_firmware(
             )
 
         print(
-            f"Starting verified upgrade {device_info['firmware_version']} -> "
-            f"{target_version}; keep the USB cable connected.",
+            f"Starting verified write {device_info['firmware_version']} -> "
+            f"{target_version} (version order: {version_order}); keep the USB cable "
+            "connected.",
             file=sys.stderr,
             flush=True,
         )
@@ -982,9 +1042,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--confirm", help="required for writes; must exactly match the device model"
     )
     upgrade_parser.add_argument(
-        "--allow-downgrade",
+        "--allow-version-change",
         action="store_true",
-        help="allow an intentional target version lower than the running version",
+        help=(
+            "allow a target version that does not sort above the running version "
+            "(an older build, a same-version reflash, or a parallel release line)"
+        ),
     )
     add_strict_product_id(upgrade_parser)
     return parser
@@ -1011,7 +1074,7 @@ def main(argv: list[str] | None = None) -> int:
                 device_id=args.device,
                 dry_run=args.dry_run,
                 confirmation=args.confirm,
-                allow_downgrade=args.allow_downgrade,
+                allow_version_change=args.allow_version_change,
                 strict_product_id=strict_product_id,
             )
         else:  # pragma: no cover - argparse enforces the choices.

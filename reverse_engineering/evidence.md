@@ -77,9 +77,10 @@
 
 - Class: FACT
 - Confidence: 100 (Confirmed)
-- Eighteen tests pass: MCUboot success/tamper/magic checks, captured query frame,
+- Twenty-five tests pass: MCUboot success/tamper/magic checks, captured query frame,
   update-frame marker, captured two-report response assembly, updater CRC vector,
-  device-compatibility classification, and post-restart verification behaviour.
+  device-compatibility classification, post-restart verification behaviour, and
+  version-order classification including the parallel-release-line cases.
 
 ## E-009 — USB product ID is not a stable model identity
 
@@ -108,3 +109,42 @@
   `protocol_compatible_unverified_product_id` rather than `hardware_verified`. In
   particular, whether this unit reports `0xd086` after writing `1.0.0+84` remains
   unconfirmed.
+
+## E-010 — Version build counters are per release line, not global
+
+- Class: FACT
+- Confidence: 100 (Confirmed live and from vendor packages)
+- The updater sorts version strings numerically and reports only the ordering
+  (`newer` / `older` / `same` / `unknown`). It does not label a result an "upgrade"
+  or a "downgrade", because the meaning of a build counter is a vendor release
+  convention.
+- Vendor packages observed side by side show independent counters:
+  public-line builds `1.0.0+66`, `+67`, `+84`, `+87`; internal-test (`_nc_`) build
+  `1.0.0+1`, whose filename timestamp `202609161520` is *later* than the `+84`
+  package's `202609101503`. A lower build number therefore does not imply an older
+  image.
+- The `0xd09d` unit was updated to `1.0.0+1` from
+  `G6HE_nc_v1.0.0+1_202609161520.signed.bin`
+  (SHA-256 `9adb197d778e09b6e12a1cd7baadee4d437afcd56c35f36d23fc82d8d152533b`,
+  353,481 bytes) and read back `1.0.0+1` afterwards. This is the first completed
+  write acceptance run for a `0xd09d` unit. The tool did not cause this write; it
+  was performed by the user before the version-ordering behaviour was reviewed.
+- Filenames are not a reliable version source: `G6HE_v1.0.0+86_202609141615.signed.bin`
+  contains an image whose embedded version is `1.0.0+87`. The updater's `inspect`
+  output, not the filename, is authoritative.
+
+## E-011 — Equal version strings do not prove equal content
+
+- Class: FACT
+- Confidence: 100 (Confirmed by code review and unit tests)
+- The device's `0x60` identity response reports a version string only; the updater
+  cannot read back the running image digest over the protocol.
+- Previously `upgrade_firmware` returned `already_current` and skipped the write
+  whenever the target version string equalled the running one, which silently
+  refused an intentional same-version reflash of different content.
+- The write is now skipped only when the image hash recorded as running for that
+  model and version (`_RUNNING_IMAGE_HASHES`) matches the selected file. Otherwise
+  the result carries `version_order_note` and enters the confirmation flow.
+- `_RUNNING_IMAGE_HASHES` is a record of what this project has observed running, not
+  a general map; for an unrecorded model/version pair the tool reports that identical
+  content cannot be confirmed rather than assuming it.
