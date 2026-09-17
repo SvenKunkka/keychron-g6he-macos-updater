@@ -43,13 +43,31 @@ TLV_NAMES = {
 DIGEST_TYPES = {0x10: hashlib.sha256, 0x11: hashlib.sha384, 0x12: hashlib.sha512}
 SIGNATURE_TYPES = {0x20, 0x21, 0x22, 0x23, 0x24}
 VERSION_PATTERN = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)\+(\d+)$")
+STATUS_HARDWARE_VERIFIED = "hardware_verified"
+STATUS_UNVERIFIED_MODEL = "protocol_compatible_unverified_model"
+STATUS_UNVERIFIED_PRODUCT_ID = "protocol_compatible_unverified_product_id"
+STATUS_INCOMPATIBLE = "incompatible"
+STATUS_PROBE_FAILED = "probe_failed"
 
 
 @dataclass(frozen=True)
 class DeviceProfile:
+    """Known-keychron-mouse identity record.
+
+    The USB product ID is a descriptor field owned by the device firmware and board
+    configuration, so it is evidence of what the updater has already seen rather than
+    an exhaustive hardware whitelist. It can legitimately differ between production
+    batches, hardware revisions and factory firmware builds of the very same model.
+    Model identity is therefore established by the model string returned over the
+    updater protocol, the model string embedded inside the signed firmware image, and
+    the model's known RAM/vector layout; the product ID is recorded and reported, and
+    an unrecognized one is surfaced as a warning instead of an incompatibility.
+    """
+
     model: str
     display_name: str
     product_ids: tuple[int, ...]
+    acceptance_verified_product_ids: frozenset[int]
     ram_start: int | None = None
     ram_end: int | None = None
     validation_status: str = "protocol_compatible"
@@ -59,10 +77,14 @@ KNOWN_DEVICE_PROFILES = {
     "54LMG6HE": DeviceProfile(
         model="54LMG6HE",
         display_name="Keychron G6 HE 8K",
-        product_ids=(0xD086,),
+        # 0xd086: unit that completed the 1.0.0+82 -> 1.0.0+84 acceptance run.
+        # 0xd09d: second unit, hardware revision 0503, factory firmware 1.0.0+0.
+        product_ids=(0xD086, 0xD09D),
+        # Only 0xd086 has completed an end-to-end upgrade acceptance run so far.
+        acceptance_verified_product_ids=frozenset({0xD086}),
         ram_start=0x20000000,
         ram_end=0x20080000,
-        validation_status="hardware_verified",
+        validation_status=STATUS_HARDWARE_VERIFIED,
     ),
 }
 TRUSTED_RELEASE_HASHES = {
@@ -499,9 +521,21 @@ def _query_open_device(device: Any, sequence: int = 1) -> tuple[dict[str, Any], 
 
 
 def _device_compatibility(
-    interface: dict[str, Any], device_info: dict[str, Any]
+    interface: dict[str, Any],
+    device_info: dict[str, Any],
+    *,
+    strict_product_id: bool = False,
 ) -> dict[str, Any]:
+    """Classify a probed device into hard blockers plus advisory warnings.
+
+    Protocol-level failures are hard blockers: the updater cannot talk to the device.
+    An unrecognized USB product ID for an otherwise known model is advisory, because
+    the product ID is a firmware/board descriptor that varies between batches and
+    factory builds of the same model; it downgrades the reported validation status and
+    is surfaced for explicit acknowledgement instead of blocking the upgrade.
+    """
     reasons: list[str] = []
+    warnings: list[str] = []
     if device_info["protocol_version"] != 1:
         reasons.append(f"unsupported protocol {device_info['protocol_version']}")
     if device_info["dfu_version"] != 0:
@@ -513,26 +547,50 @@ def _device_compatibility(
 
     profile = KNOWN_DEVICE_PROFILES.get(device_info["model"])
     product_id = int(interface.get("product_id", 0))
-    if profile and product_id not in profile.product_ids:
-        reasons.append(
-            f"known model {profile.model} has unexpected USB product ID 0x{product_id:04x}"
-        )
+    product_id_recognized: bool | None = None
+    known_product_ids: list[str] = []
+    if profile is not None:
+        product_id_recognized = product_id in profile.product_ids
+        known_product_ids = [f"0x{value:04x}" for value in profile.product_ids]
+        if not product_id_recognized:
+            message = (
+                f"known model {profile.model} reports USB product ID "
+                f"0x{product_id:04x}, which is not among the recorded product IDs "
+                f"({', '.join(known_product_ids)}); the product ID is set by the device "
+                "firmware and board configuration, so it can differ between production "
+                "batches, hardware revisions and factory firmware builds"
+            )
+            if strict_product_id:
+                reasons.append(message)
+            else:
+                warnings.append(message)
+
+    if reasons:
+        status = STATUS_INCOMPATIBLE
+    elif profile is None:
+        status = STATUS_UNVERIFIED_MODEL
+    elif product_id in profile.acceptance_verified_product_ids:
+        status = profile.validation_status
+    else:
+        status = STATUS_UNVERIFIED_PRODUCT_ID
     return {
         "compatible": not reasons,
-        "compatibility_status": (
-            profile.validation_status if profile and not reasons else
-            "protocol_compatible_unverified_model" if not reasons else
-            "incompatible"
-        ),
+        "compatibility_status": status,
         "display_name": profile.display_name if profile else (
             interface.get("product_string") or device_info["model"] or "Keychron Mouse"
         ),
         "compatibility_reasons": reasons,
+        "compatibility_warnings": warnings,
+        "product_id_recognized": product_id_recognized,
+        "known_product_ids": known_product_ids,
     }
 
 
 def query_device(
-    device_id: str | None = None, *, interface: dict[str, Any] | None = None
+    device_id: str | None = None,
+    *,
+    interface: dict[str, Any] | None = None,
+    strict_product_id: bool = False,
 ) -> dict[str, Any]:
     hid = _import_hid()
     interface = interface or _find_upgrade_interface(device_id)
@@ -541,24 +599,29 @@ def query_device(
     return {
         **_serialize_interface(interface),
         **device_info,
-        **_device_compatibility(interface, device_info),
+        **_device_compatibility(
+            interface, device_info, strict_product_id=strict_product_id
+        ),
         "write_attempted": False,
     }
 
 
-def discover_devices() -> list[dict[str, Any]]:
+def discover_devices(*, strict_product_id: bool = False) -> list[dict[str, Any]]:
     devices: list[dict[str, Any]] = []
     for interface in _upgrade_interfaces():
         try:
-            devices.append(query_device(interface=interface))
+            devices.append(
+                query_device(interface=interface, strict_product_id=strict_product_id)
+            )
         except Exception as exc:
             devices.append(
                 {
                     **_serialize_interface(interface),
                     "display_name": interface.get("product_string") or "Keychron Mouse",
                     "compatible": False,
-                    "compatibility_status": "probe_failed",
+                    "compatibility_status": STATUS_PROBE_FAILED,
                     "compatibility_reasons": [str(exc)],
+                    "compatibility_warnings": [],
                     "probe_error": str(exc),
                     "write_attempted": False,
                 }
@@ -654,19 +717,26 @@ def _validate_upgrade_target(
 
 
 def _query_after_restart(
-    expected_model: str, preferred_device_id: str, preferred_product_id: str
+    expected_model: str, preferred_device_id: str | None = None
 ) -> dict[str, Any]:
-    try:
-        candidate = query_device(preferred_device_id)
-        if candidate["model"] == expected_model:
-            return candidate
-    except Exception:
-        pass
+    """Re-read the upgraded device after USB re-enumeration.
+
+    Verification matches on the protocol-reported model only. It deliberately does not
+    require the USB product ID to be unchanged: re-enumeration can legitimately present
+    a different product ID when the newly written firmware declares a different one,
+    and requiring equality would fail an upgrade that actually succeeded.
+    """
+    if preferred_device_id:
+        try:
+            candidate = query_device(preferred_device_id)
+            if candidate["model"] == expected_model:
+                return candidate
+        except Exception:
+            pass
     matches = [
         candidate
         for candidate in discover_devices()
         if candidate.get("model") == expected_model
-        and candidate.get("product_id") == preferred_product_id
     ]
     if len(matches) == 1:
         return matches[0]
@@ -684,6 +754,7 @@ def upgrade_firmware(
     dry_run: bool,
     confirmation: str | None,
     allow_downgrade: bool = False,
+    strict_product_id: bool = False,
 ) -> dict[str, Any]:
     firmware_report = inspect_firmware(path)
     data = path.read_bytes()
@@ -699,9 +770,13 @@ def upgrade_firmware(
         device_info = {
             **_serialize_interface(interface),
             **raw_device_info,
-            **_device_compatibility(interface, raw_device_info),
+            **_device_compatibility(
+                interface, raw_device_info, strict_product_id=strict_product_id
+            ),
         }
         _validate_upgrade_target(firmware_report, device_info, data)
+        for warning in device_info["compatibility_warnings"]:
+            print(f"Warning: {warning}", file=sys.stderr, flush=True)
         target_version = firmware_report["header"]["version"]
         version_relation = _version_relation(
             device_info["firmware_version"], target_version
@@ -720,6 +795,7 @@ def upgrade_firmware(
             "firmware_crc32": f"0x{file_crc:08x}",
             "firmware_trust_status": trust_status,
             "host_signature_verified": False,
+            "compatibility_warnings": device_info["compatibility_warnings"],
         }
         if version_relation == "same":
             return {
@@ -834,7 +910,6 @@ def upgrade_firmware(
             candidate = _query_after_restart(
                 device_info["model"],
                 selected_device_id,
-                device_info["product_id"],
             )
             if candidate["firmware_version"] == target_version:
                 verified = candidate
@@ -854,6 +929,8 @@ def upgrade_firmware(
         **common_result,
         "previous_version": device_info["firmware_version"],
         "device": verified,
+        "product_id_changed": verified["product_id"] != device_info["product_id"],
+        "previous_product_id": device_info["product_id"],
         "bytes_written": len(data),
         "chunks_written": total_chunks,
         "write_attempted": True,
@@ -866,18 +943,31 @@ def build_parser() -> argparse.ArgumentParser:
         description="Safe Keychron mouse firmware inspection and HID upgrade for macOS"
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    def add_strict_product_id(target: argparse.ArgumentParser) -> None:
+        target.add_argument(
+            "--strict-product-id",
+            action="store_true",
+            help=(
+                "treat an unrecorded USB product ID for a known model as an "
+                "incompatibility instead of a warning"
+            ),
+        )
+
     inspect_parser = subparsers.add_parser(
         "inspect", help="validate a firmware package without touching a device"
     )
     inspect_parser.add_argument("firmware", type=Path)
     subparsers.add_parser("list", help="list all Keychron HID interfaces without writing")
-    subparsers.add_parser(
+    devices_parser = subparsers.add_parser(
         "devices", help="discover and probe Keychron mouse upgrade interfaces"
     )
+    add_strict_product_id(devices_parser)
     probe_parser = subparsers.add_parser(
         "probe", help="query one Keychron mouse model and firmware version"
     )
     probe_parser.add_argument("--device", help="device_id returned by the devices command")
+    add_strict_product_id(probe_parser)
     upgrade_parser = subparsers.add_parser(
         "upgrade", help="validate or install a signed Keychron mouse firmware image"
     )
@@ -896,20 +986,25 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="allow an intentional target version lower than the running version",
     )
+    add_strict_product_id(upgrade_parser)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    strict_product_id = bool(getattr(args, "strict_product_id", False))
     try:
         if args.command == "inspect":
             result: Any = inspect_firmware(args.firmware)
         elif args.command == "list":
             result = {"matching_devices": list_hid_devices(), "write_attempted": False}
         elif args.command == "devices":
-            result = {"devices": discover_devices(), "write_attempted": False}
+            result = {
+                "devices": discover_devices(strict_product_id=strict_product_id),
+                "write_attempted": False,
+            }
         elif args.command == "probe":
-            result = query_device(args.device)
+            result = query_device(args.device, strict_product_id=strict_product_id)
         elif args.command == "upgrade":
             result = upgrade_firmware(
                 args.firmware,
@@ -917,6 +1012,7 @@ def main(argv: list[str] | None = None) -> int:
                 dry_run=args.dry_run,
                 confirmation=args.confirm,
                 allow_downgrade=args.allow_downgrade,
+                strict_product_id=strict_product_id,
             )
         else:  # pragma: no cover - argparse enforces the choices.
             raise AssertionError(args.command)

@@ -77,5 +77,34 @@
 
 - Class: FACT
 - Confidence: 100 (Confirmed)
-- Seven tests pass: MCUboot success/tamper/magic checks, captured query frame,
-  update-frame marker, captured two-report response assembly, and updater CRC vector.
+- Eighteen tests pass: MCUboot success/tamper/magic checks, captured query frame,
+  update-frame marker, captured two-report response assembly, updater CRC vector,
+  device-compatibility classification, and post-restart verification behaviour.
+
+## E-009 — USB product ID is not a stable model identity
+
+- Class: FACT
+- Confidence: 100 (Confirmed live)
+- A second `Keychron G6 HE 8K` reports `VID 0x3434 / PID 0xd09d` on every one of its
+  interfaces (including the upgrade interface: interface 3, usage page `0x008c`,
+  usage `0x0001`), with `release_number 0x0100`, `hardware_revision 0503`, model
+  `54LMG6HE`, firmware `1.0.0+0`, bootloader model `54LMv1.0`, protocol 1, DFU 0,
+  update modes `0x01`, no bootloader switch required.
+- The unit recorded in E-006/E-007 reported `PID 0xd086` for the same model. The
+  product ID therefore varies within one model, consistent with a per-batch,
+  per-board or per-firmware-build descriptor rather than a fixed model identity.
+- Consequence: treating an unrecorded product ID for a known model as a hard
+  incompatibility rejected a genuine device. Product ID is now advisory; identity is
+  carried by the model string returned over the protocol, the model string embedded
+  in the signed image, and the profile RAM/vector layout. `--strict-product-id`
+  restores the strict behaviour.
+- Offline validation on the `0xd09d` unit: firmware
+  `38f5bbb0…95a` inspects as a valid MCUboot image with CRC `0x482f47d5` (matching
+  E-007), and `upgrade --dry-run` returns `status: ready`,
+  `version_relation: upgrade`, `firmware_trust_status: known_release_hash`,
+  `write_attempted: false`.
+- Not yet established: no write was attempted on this unit, so the `0xd09d` pair has
+  not completed an end-to-end upgrade acceptance run and is reported as
+  `protocol_compatible_unverified_product_id` rather than `hardware_verified`. In
+  particular, whether this unit reports `0xd086` after writing `1.0.0+84` remains
+  unconfirmed.

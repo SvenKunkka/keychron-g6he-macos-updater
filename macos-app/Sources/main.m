@@ -142,9 +142,15 @@ typedef void (^ToolCompletion)(int, NSString *, NSString *);
     NSString *value = device[@"compatibility_status"];
     if ([value isEqual:@"hardware_verified"]) return @"已实机验证";
     if ([value isEqual:@"protocol_compatible_unverified_model"]) return @"协议兼容，待实机验证";
+    if ([value isEqual:@"protocol_compatible_unverified_product_id"]) return @"协议兼容，该 PID 待实机验证";
     if ([value isEqual:@"probe_failed"]) return @"设备读取失败";
     if ([value isEqual:@"incompatible"]) return @"协议不兼容";
     return @"状态未知";
+}
+
+- (NSArray<NSString *> *)warningsForDevice:(NSDictionary *)device {
+    id value = device[@"compatibility_warnings"];
+    return [value isKindOfClass:NSArray.class] ? value : @[];
 }
 
 - (void)updateControls {
@@ -286,10 +292,17 @@ typedef void (^ToolCompletion)(int, NSString *, NSString *);
         @"设备：%@ · 型号 %@ · 当前固件 %@ · %@",
         device[@"display_name"] ?: @"Keychron Mouse", device[@"model"] ?: @"未知",
         device[@"firmware_version"] ?: @"未知", [self compatibilityLabelForDevice:device]];
-    self.statusLabel.stringValue = [device[@"compatible"] boolValue]
-        ? @"设备协议检查通过。请选择该型号对应的签名固件。"
-        : [NSString stringWithFormat:@"设备不可升级：%@",
+    NSArray<NSString *> *warnings = [self warningsForDevice:device];
+    if (![device[@"compatible"] boolValue]) {
+        self.statusLabel.stringValue = [NSString stringWithFormat:@"设备不可升级：%@",
             [device[@"compatibility_reasons"] componentsJoinedByString:@"；"] ?: @"未知原因"];
+    } else if (warnings.count) {
+        self.statusLabel.stringValue = [NSString stringWithFormat:
+            @"协议检查通过，但有需要确认的提示：%@",
+            [warnings componentsJoinedByString:@"；"]];
+    } else {
+        self.statusLabel.stringValue = @"设备协议检查通过。请选择该型号对应的签名固件。";
+    }
     [self updateControls];
 }
 
@@ -307,7 +320,11 @@ typedef void (^ToolCompletion)(int, NSString *, NSString *);
                 @"设备：%@ · 型号 %@ · 当前固件 %@ · %@",
                 result[@"display_name"] ?: @"Keychron Mouse", result[@"model"] ?: @"未知",
                 result[@"firmware_version"] ?: @"未知", [self compatibilityLabelForDevice:result]];
-            self.statusLabel.stringValue = @"所选设备读取成功。";
+            NSArray<NSString *> *warnings = [self warningsForDevice:result];
+            self.statusLabel.stringValue = warnings.count
+                ? [NSString stringWithFormat:@"所选设备读取成功，但请注意：%@",
+                    [warnings componentsJoinedByString:@"；"]]
+                : @"所选设备读取成功。";
         }];
 }
 
@@ -361,12 +378,15 @@ typedef void (^ToolCompletion)(int, NSString *, NSString *);
             NSString *model = device[@"model"] ?: @"";
             BOOL downgrade = [result[@"requires_downgrade_confirmation"] boolValue];
             BOOL unverifiedModel = [device[@"compatibility_status"] isEqual:@"protocol_compatible_unverified_model"];
+            BOOL unverifiedProductID = [device[@"compatibility_status"] isEqual:@"protocol_compatible_unverified_product_id"];
             BOOL bootloaderOnly = [result[@"firmware_trust_status"] isEqual:@"bootloader_signature_only"];
             NSMutableArray<NSString *> *warnings = [NSMutableArray arrayWithObject:
                 @"升级期间请保持 USB 连接。应用会阻止 Mac 自动休眠。"];
             if (unverifiedModel) [warnings addObject:@"该型号协议兼容，但尚未完成本项目实机升级验收。"];
+            if (unverifiedProductID) [warnings addObject:@"该型号协议兼容，但此 USB PID 尚未完成本项目实机升级验收。"];
             if (bootloaderOnly) [warnings addObject:@"此固件不在可信哈希表中，签名真实性由设备 Bootloader 最终判断。"];
             if (downgrade) [warnings addObject:@"目标版本低于当前版本，这是降级操作。"];
+            [warnings addObjectsFromArray:[self warningsForDevice:device]];
 
             NSAlert *alert = [[NSAlert alloc] init];
             alert.alertStyle = downgrade ? NSAlertStyleCritical : NSAlertStyleWarning;

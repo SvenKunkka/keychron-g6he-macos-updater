@@ -3,7 +3,7 @@
 set -euo pipefail
 
 PROJECT_DIR="${0:A:h:h}"
-VERSION="${VERSION:-1.1.0}"
+VERSION="${VERSION:-1.2.0}"
 APP_NAME="Keychron Mouse Firmware Updater"
 BUILD_DIR="$PROJECT_DIR/build-release"
 DIST_DIR="$PROJECT_DIR/dist"
@@ -56,16 +56,29 @@ cp "$PROJECT_DIR/LICENSE" "$APP_PATH/Contents/Resources/Licenses/application-MIT
 
 ICON_WORK="$BUILD_DIR/icon"
 mkdir -p "$ICON_WORK" "$ICON_WORK/AppIcon.iconset"
-qlmanage -t -s 1024 -o "$ICON_WORK" "$PROJECT_DIR/macos-app/Resources/AppIcon.svg" >/dev/null 2>&1
-SOURCE_PNG="$ICON_WORK/AppIcon.svg.png"
-if [[ -f "$SOURCE_PNG" ]]; then
-  for size in 16 32 128 256 512; do
-    sips -z "$size" "$size" "$SOURCE_PNG" --out "$ICON_WORK/AppIcon.iconset/icon_${size}x${size}.png" >/dev/null
-    double=$((size * 2))
-    sips -z "$double" "$double" "$SOURCE_PNG" --out "$ICON_WORK/AppIcon.iconset/icon_${size}x${size}@2x.png" >/dev/null
-  done
-  iconutil -c icns "$ICON_WORK/AppIcon.iconset" -o "$APP_PATH/Contents/Resources/AppIcon.icns"
+# The app icon is best-effort. qlmanage needs a GUI session, so it fails with a
+# non-zero status in headless and CI builds; under `set -e` that used to abort the
+# whole release before the DMG was produced. Prefer a prebuilt .icns when one is
+# supplied via ICON_ICNS, otherwise render the SVG through QuickLook.
+if [[ -n "${ICON_ICNS:-}" ]]; then
+  cp "$ICON_ICNS" "$APP_PATH/Contents/Resources/AppIcon.icns"
+else
+  qlmanage -t -s 1024 -o "$ICON_WORK" "$PROJECT_DIR/macos-app/Resources/AppIcon.svg" \
+    >/dev/null 2>&1 || true
+  SOURCE_PNG="$ICON_WORK/AppIcon.svg.png"
+  if [[ -f "$SOURCE_PNG" ]]; then
+    for size in 16 32 128 256 512; do
+      sips -z "$size" "$size" "$SOURCE_PNG" --out "$ICON_WORK/AppIcon.iconset/icon_${size}x${size}.png" >/dev/null
+      double=$((size * 2))
+      sips -z "$double" "$double" "$SOURCE_PNG" --out "$ICON_WORK/AppIcon.iconset/icon_${size}x${size}@2x.png" >/dev/null
+    done
+    iconutil -c icns "$ICON_WORK/AppIcon.iconset" -o "$APP_PATH/Contents/Resources/AppIcon.icns"
+  fi
+fi
+if [[ -f "$APP_PATH/Contents/Resources/AppIcon.icns" ]]; then
   /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AppIcon" "$APP_PATH/Contents/Info.plist"
+else
+  echo "note: no app icon generated (QuickLook unavailable and ICON_ICNS not set)." >&2
 fi
 
 codesign --force --deep --sign - "$APP_PATH"

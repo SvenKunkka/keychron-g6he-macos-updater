@@ -24,19 +24,33 @@
 - MCUboot 容器、摘要、key hash 和签名 TLV 结构有效；
 - 设备协议为 1、DFU 为 0，并支持标准升级模式；
 - 固件内容包含与所选设备完全一致的型号；
-- 已知型号的 USB PID、RAM 地址和向量范围正确；
+- 已知型号的 RAM 地址和向量范围正确；
 - 降级必须单独确认。
 
 | 型号 | USB PID | 状态 |
 |---|---:|---|
 | Keychron G6 HE 8K / `54LMG6HE` | `0xd086` | 已实机验证 `1.0.0+82 → 1.0.0+84` |
+| Keychron G6 HE 8K / `54LMG6HE` | `0xd09d` | 协议兼容；该台（`hardware_revision 0503`、出厂 `1.0.0+0`）尚未完成实机升级验收 |
 | 其他返回同协议的 Keychron 鼠标 | 动态识别 | 协议兼容，首次升级前仍需对应型号实机验收 |
 
 “找到设备”只代表接口和协议检查通过，不等于该型号已经完成升级验收。
 
+### 为什么 USB PID 是提示而不是阻断
+
+USB PID 是设备固件和板级配置提供的描述符字段，不是某个型号的固定属性。同一个型号在
+不同生产批次、硬件版本和出厂固件下可能枚举出不同的 PID——G6 HE 8K 本身就同时记录了
+`0xd086` 和 `0xd09d` 两个值。
+
+因此型号身份由以下三类证据确定：升级协议返回的型号字符串、签名固件内嵌的型号字符串、
+以及该型号已知的 RAM 与向量布局。对已知型号出现未记录的 PID 时，程序会给出提示、降低
+验证等级，并在确认对话框中显示，但不会阻断升级。协议级失败仍然阻断，凡配置了 profile
+的型号其 RAM/向量范围检查也照旧强制执行。
+
+需要恢复“PID 不匹配即阻断”的严格行为时，可加 `--strict-product-id`。
+
 ## 安装与使用
 
-1. 打开 `Keychron-Mouse-Firmware-Updater-v1.1.0-macOS-arm64.dmg`。
+1. 打开 `Keychron-Mouse-Firmware-Updater-v1.2.0-macOS-arm64.dmg`。
 2. 将 **Keychron Mouse Firmware Updater** 拖入 Applications。
 3. 首次运行若 macOS 拦截，请右键应用并选择“打开”。
 4. 将鼠标切换到有线模式并 USB 直连 Mac。
@@ -67,7 +81,8 @@ python3 keychron_mouse_updater.py upgrade firmware.signed.bin --device DEVICE_ID
 python3 keychron_mouse_updater.py upgrade firmware.signed.bin --device DEVICE_ID --confirm DEVICE_MODEL
 ```
 
-有意降级时还必须增加 `--allow-downgrade`。
+有意降级时还必须增加 `--allow-downgrade`。对 `devices`、`probe`、`upgrade` 增加
+`--strict-product-id` 可把“未记录的 USB PID”从提示恢复为阻断。
 
 ## 固件与签名边界
 
