@@ -1,3 +1,7 @@
+<!-- SVENKUNKKA-README-NAV:BEGIN -->
+[中文项目说明](#project-overview-zh) · [English overview](#project-overview-en) · [维护者 X / Maintainer on X](https://x.com/Svenu1s5)
+<!-- SVENKUNKKA-README-NAV:END -->
+
 # Keychron Mouse Firmware Updater for macOS
 
 [简体中文](README.md) | [English](README.en.md)
@@ -125,3 +129,30 @@ python3 keychron_mouse_updater.py upgrade firmware.signed.bin --device DEVICE_ID
 
 Application source code: [MIT](LICENSE). Third-party components:
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+
+---
+
+<!-- SVENKUNKKA-PROJECT-INFO:BEGIN -->
+
+<a id="project-overview-zh"></a>
+## 中文项目说明
+
+面向 Apple Silicon Mac 的 Keychron 鼠标图形化固件升级工具，通过 USB 读取设备型号与协议，校验用户选择的签名固件及版本关系后执行升级，并提供命令行入口。
+
+**使用入口：** 安装说明见原 README及 [英文说明](README.en.md)；源码构建需要 Apple Command Line Tools、Homebrew 与 `hidapi`，运行 `./scripts/build_release.sh`。
+
+**范围说明：** 应用未获 Apple 公证，不内置固件；识别设备不代表对应型号已通过实机验收，签名真实性最终由设备 Bootloader 验证。研究子项目不是可刷写的完整固件。
+
+<a id="project-overview-en"></a>
+## English project overview
+
+A graphical Keychron mouse firmware updater for Apple Silicon Macs. It reads device identity and protocol over USB, checks a user-selected signed image and version relationship, and provides both GUI and CLI workflows.
+
+**Getting started:** See the original README and the [English README](README.en.md) for installation. Source builds require Apple Command Line Tools, Homebrew, and `hidapi`; run `./scripts/build_release.sh`.
+
+**Scope:** The application is not Apple-notarized and bundles no firmware. Device detection is not per-model physical validation; the bootloader ultimately verifies signature authenticity. The research subproject is not complete flashable firmware.
+
+**仓库维护者 / Repository maintainer:** [SvenKunkka](https://github.com/SvenKunkka) · [X / Twitter](https://x.com/Svenu1s5)
+
+<!-- SVENKUNKKA-PROJECT-INFO:END -->

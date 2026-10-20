@@ -145,3 +145,10 @@ snapshot.
 
 Application source code: [MIT](LICENSE). Third-party components:
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+
+<!-- SVENKUNKKA-CONTACT:BEGIN -->
+
+**仓库维护者 / Repository maintainer:** [SvenKunkka](https://github.com/SvenKunkka) · [X / Twitter](https://x.com/Svenu1s5)
+
+<!-- SVENKUNKKA-CONTACT:END -->
